@@ -1,9 +1,8 @@
 // src/pages/business/BusinessMergers.jsx
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, GitMerge, Check, Lock, TrendingUp,
-  Sparkles, AlertTriangle, Building2
+  ArrowLeft, GitMerge, Check, TrendingUp,
+  Building2, Clock
 } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { theme } from '../../design/tokens';
@@ -16,22 +15,20 @@ function BusinessMergers() {
   const navigate = useNavigate();
   const { isDark } = useTheme();
   const t = isDark ? theme.dark : theme.light;
-  const { ownedBusinesses, mergedBusinesses, balance, startMerger } = useGame();
+  const { ownedBusinesses, mergedBusinesses, activeMergerFlows, balance } = useGame();
 
-  const [confirmId, setConfirmId] = useState(null);
-
-  const handleStartMerger = (merger) => {
-    startMerger(merger);
-    setConfirmId(null);
-  };
-
-  // Separate active and available
+  // Separate active, in-progress, and available
   const activeMergers = MERGER_BUSINESSES.filter(m =>
     (mergedBusinesses || []).some(mb => mb.mergerId === m.id)
   );
 
+  const inProgressMergers = MERGER_BUSINESSES.filter(m =>
+    (activeMergerFlows || []).some(f => f.mergerId === m.id)
+  );
+
   const availableMergers = MERGER_BUSINESSES.filter(m =>
-    !(mergedBusinesses || []).some(mb => mb.mergerId === m.id)
+    !(mergedBusinesses || []).some(mb => mb.mergerId === m.id) &&
+    !(activeMergerFlows || []).some(f => f.mergerId === m.id)
   );
 
   return (
@@ -52,7 +49,7 @@ function BusinessMergers() {
           <div>
             <h1 className={`text-lg font-bold ${t.text.primary}`}>Business Mergers</h1>
             <p className={`text-[10px] ${t.text.tertiary}`}>
-              {activeMergers.length} active • {availableMergers.length} available
+              {activeMergers.length} active • {inProgressMergers.length} in progress • {availableMergers.length} available
             </p>
           </div>
         </div>
@@ -85,11 +82,12 @@ function BusinessMergers() {
                       <MergerIcon className="w-5.5 h-5.5 text-white" />
                     </div>
                     <div className="flex-1">
-                      <p className={`text-sm font-bold ${t.text.primary}`}>{merger.name}</p>
+                      <p className={`text-sm font-bold ${t.text.primary}`}>
+                        {activeMerged?.name || merger.name}
+                      </p>
                       <p className={`text-[10px] ${t.text.tertiary}`}>{merger.description}</p>
                     </div>
-                    <div className="flex items-center gap-1 px-2 py-1 rounded-full
-                      bg-green-500/15">
+                    <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-green-500/15">
                       <Check className="w-3 h-3 text-green-500" />
                       <span className="text-[9px] font-bold text-green-500">ACTIVE</span>
                     </div>
@@ -98,10 +96,56 @@ function BusinessMergers() {
                     ${isDark ? 'bg-green-500/10' : 'bg-green-100'}`}>
                     <TrendingUp className="w-3.5 h-3.5 text-green-500" />
                     <span className="text-xs font-bold text-green-500">
-                      +{formatCurrency(merger.incomePerHour)}/hr
+                      +{formatCurrency(activeMerged?.incomePerHour || merger.incomePerHour)}/hr
                     </span>
                   </div>
                 </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* In-Progress Mergers */}
+        {inProgressMergers.length > 0 && (
+          <div>
+            <p className={`text-xs font-bold mb-2 text-orange-500`}>
+              🔄 In Progress ({inProgressMergers.length})
+            </p>
+            {inProgressMergers.map(merger => {
+              const MergerIcon = merger.icon;
+              const flow = (activeMergerFlows || []).find(f => f.mergerId === merger.id);
+              const phasesComplete = (flow?.phases || []).filter(p => p.status === 'completed').length;
+
+              return (
+                <button key={merger.id}
+                  onClick={() => flow ? navigate(`/business/merger/development/${flow.id}`) : null}
+                  className={`w-full rounded-xl p-4 mb-2 text-left transition-all active:scale-[0.98]
+                    ${isDark ? 'bg-orange-500/5 border border-orange-500/20'
+                      : 'bg-orange-50 border border-orange-200'}`}>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${merger.color}`}>
+                      <MergerIcon className="w-5.5 h-5.5 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <p className={`text-sm font-bold ${t.text.primary}`}>
+                        {flow?.name || merger.name}
+                      </p>
+                      <p className={`text-[10px] ${t.text.tertiary}`}>
+                        Phase {phasesComplete}/4 completed
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-orange-500/15">
+                      <Clock className="w-3 h-3 text-orange-500" />
+                      <span className="text-[9px] font-bold text-orange-500">IN PROGRESS</span>
+                    </div>
+                  </div>
+                  {/* Progress bar */}
+                  <div className={`w-full h-1.5 rounded-full overflow-hidden
+                    ${isDark ? 'bg-gray-800' : 'bg-gray-200'}`}>
+                    <div className="h-full rounded-full bg-orange-500 transition-all"
+                      style={{ width: `${(phasesComplete / 4) * 100}%` }} />
+                  </div>
+                </button>
               );
             })}
           </div>
@@ -228,7 +272,10 @@ function BusinessMergers() {
                   )}
 
                   <button
-                    onClick={() => canStart ? setConfirmId(merger.id) : null}
+                    onClick={() => canStart
+                      ? navigate(`/business/merger/confirm/${merger.id}`)
+                      : null
+                    }
                     disabled={!canStart}
                     className={`w-full py-3 rounded-xl text-sm font-bold transition-all
                       ${canStart
@@ -249,67 +296,13 @@ function BusinessMergers() {
         </div>
 
         {/* Empty state */}
-        {availableMergers.length === 0 && activeMergers.length === 0 && (
+        {availableMergers.length === 0 && activeMergers.length === 0 && inProgressMergers.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16">
             <GitMerge className={`w-12 h-12 mb-3 ${t.text.tertiary}`} />
             <p className={`text-sm font-medium ${t.text.secondary}`}>No mergers available</p>
           </div>
         )}
       </div>
-
-      {/* Confirm Modal */}
-      {confirmId && (() => {
-        const merger = MERGER_BUSINESSES.find(m => m.id === confirmId);
-        if (!merger) return null;
-        const MergerIcon = merger.icon;
-
-        return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4
-            bg-black/60 backdrop-blur-sm" onClick={() => setConfirmId(null)}>
-            <div onClick={(e) => e.stopPropagation()}
-              className={`w-full max-w-sm rounded-2xl p-5
-                ${isDark ? 'bg-gray-900 border border-gray-700' : 'bg-white border border-gray-200'}`}>
-              <div className="flex items-center gap-3 mb-4">
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${merger.color}`}>
-                  <MergerIcon className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <p className={`text-sm font-bold ${t.text.primary}`}>Start {merger.name}?</p>
-                  <p className={`text-[10px] ${t.text.secondary}`}>This will deduct the investment</p>
-                </div>
-              </div>
-
-              <div className={`rounded-xl p-3 mb-4 ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`}>
-                <div className="flex justify-between mb-1.5">
-                  <span className={`text-xs ${t.text.secondary}`}>Investment</span>
-                  <span className={`text-xs font-bold ${t.text.brand}`}>
-                    {formatCurrency(merger.investment)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className={`text-xs ${t.text.secondary}`}>Income</span>
-                  <span className="text-xs font-bold text-green-500">
-                    +{formatCurrency(merger.incomePerHour)}/hr
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <button onClick={() => setConfirmId(null)}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-bold
-                    ${isDark ? 'bg-gray-800 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
-                  Cancel
-                </button>
-                <button onClick={() => handleStartMerger(merger)}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-bold
-                    bg-gradient-to-r from-purple-500 to-violet-600 text-white active:scale-95">
-                  Confirm & Invest
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
 
       <AdSpace />
     </div>

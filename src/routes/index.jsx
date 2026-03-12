@@ -18,6 +18,15 @@ import ProjectBoard from '../pages/business/management/ProjectBoard';
 import BranchManagement from '../pages/business/management/BranchManagement';
 import LicensePayment from '../pages/business/management/LicensePayment';
 import BizSettings from '../pages/business/management/BizSettings';
+
+// Merger Flow
+import MergerConfirm from '../pages/business/merger/MergerConfirm';
+import MergerNameInput from '../pages/business/merger/MergerNameInput';
+import MergerTrends from '../pages/business/merger/MergerTrends';
+import MergerAnalysts from '../pages/business/merger/MergerAnalysts';
+import MergerConfigurator from '../pages/business/merger/MergerConfigurator';
+import MergerDevelopment from '../pages/business/merger/MergerDevelopment';
+
 import Investing from '../pages/investing/Investing';
 import Items from '../pages/items/Items';
 import Profile from '../pages/profile/Profile';
@@ -105,6 +114,14 @@ function AppRoutes() {
       <Route path="/business/manage/:bizId/branches" element={<BranchManagement />} />
       <Route path="/business/manage/:bizId/licenses" element={<LicensePayment />} />
       <Route path="/business/manage/:bizId/bizsettings" element={<BizSettings />} />
+
+      {/* Merger Flow */}
+      <Route path="/business/merger/confirm/:mergerId" element={<MergerConfirm />} />
+      <Route path="/business/merger/name/:mergerId" element={<MergerNameInput />} />
+      <Route path="/business/merger/trends/:flowId" element={<MergerTrends />} />
+      <Route path="/business/merger/analysts/:flowId/:trendId" element={<MergerAnalysts />} />
+      <Route path="/business/merger/configurator/:flowId" element={<MergerConfigurator />} />
+      <Route path="/business/merger/development/:flowId" element={<MergerDevelopment />} />
 
       {/* Stocks */}
       <Route path="/investing/stocks/portfolio" element={<StockPortfolio />} />
