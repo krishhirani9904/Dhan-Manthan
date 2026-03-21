@@ -8,6 +8,8 @@ import { useGame } from '../../hooks/useGame';
 import { AIRCRAFT, AIRCRAFT_TEAM_COST_PERCENT, AIRCRAFT_DESIGN_OPTIONS } from '../../data/itemsData';
 import { formatCurrency } from '../../utils/formatCurrency';
 import AdSpace from '../../components/common/AdSpace';
+import ItemImage from '../../components/common/ItemImage';
+
 
 function AircraftBuy() {
   const { aircraftId } = useParams();
@@ -43,8 +45,16 @@ function AircraftBuy() {
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-4 py-4 space-y-4">
         <p className={`text-lg font-bold ${t.text.primary}`}>{ac.name}</p>
         <p className={`text-xs ${t.text.secondary}`}>Price from: {formatCurrency(ac.price)}</p>
-        <div className={`h-36 rounded-xl flex items-center justify-center text-6xl ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`}>{ac.image}</div>
-
+        {/* <div className={`h-36 rounded-xl flex items-center justify-center text-6xl ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`}>{ac.image}</div> */}
+        {/* <div className={`h-36 rounded-xl flex items-center justify-center ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`}><ItemImage image={ac.image} alt={ac.name} className="text-6xl" imgClassName="h-28 w-auto object-contain" /> </div> */}
+{/* ✅ Box size = h-36, image auto-fits inside */}
+<div className={`h-36 rounded-xl flex items-center justify-center overflow-hidden ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`}>
+  <ItemImage
+    image={ac.image}
+    alt={ac.name}
+    className="text-6xl"
+  />
+</div>
         <p className={`text-[10px] ${t.text.tertiary}`}>Pilot, flight attendants, maintenance personnel</p>
         <button onClick={() => setTeamHired(!teamHired)}
           className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all

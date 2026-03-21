@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+// src/pages/business/merger/MergerConfigurator.jsx
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Check, X, MonitorPlay, Lock, Zap
@@ -22,7 +23,7 @@ function MergerConfigurator() {
   const [config, setConfig] = useState({
     style: null, quality: null, audience: null, price: null,
   });
-  const [adAutoSelect, setAdAutoSelect] = useState(false);
+  const [adWatchingCategory, setAdWatchingCategory] = useState(null);
   const [adBoosting, setAdBoosting] = useState(false);
   const [, setTick] = useState(0);
 
@@ -31,12 +32,33 @@ function MergerConfigurator() {
     return () => clearInterval(interval);
   }, []);
 
-  // Restore saved config if exists
+  // Restore saved config
   useEffect(() => {
     if (flow?.configuration) {
       setConfig(flow.configuration);
     }
-  }, []);
+  }, [flow?.configuration]);
+
+  // Generate randomized "correct" answers per session
+  const correctAnswers = useMemo(() => {
+    if (!flow) return {};
+    const options = getConfiguratorOptions(flow.mergerId);
+    const categories = ['style', 'quality', 'audience', 'price'];
+    const answers = {};
+
+    // Use flow ID as seed for consistency within session
+    const seed = flow.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+
+    categories.forEach((cat, catIdx) => {
+      const opts = options[cat]?.options || [];
+      if (opts.length === 0) return;
+      // Randomize which option is "best" this session
+      const randomIdx = (seed + catIdx * 7 + Date.now() % 3) % opts.length;
+      answers[cat] = opts[randomIdx]?.id;
+    });
+
+    return answers;
+  }, [flow?.id, flow?.mergerId]);
 
   if (!flow) {
     return (
@@ -57,26 +79,26 @@ function MergerConfigurator() {
   const timerRemaining = isConfigSaved
     ? Math.max(0, Math.floor((flow.configTimerEndTime - Date.now()) / 1000))
     : 0;
-  const timerComplete = isConfigSaved && timerRemaining <= 0;
+  const timerComplete = isConfigSaved && (flow.configCompleted || timerRemaining <= 0);
 
   const handleSelect = (category, optionId) => {
     if (isConfigSaved) return;
     setConfig(prev => ({ ...prev, [category]: optionId }));
   };
 
-  const handleAutoSelect = () => {
-    if (isConfigSaved) return;
-    setAdAutoSelect(true);
+  // Per-category ad auto-select
+  const handleAdAutoSelect = (category) => {
+    if (isConfigSaved || adWatchingCategory) return;
+    setAdWatchingCategory(category);
     setTimeout(() => {
-      const best = {};
-      categories.forEach(cat => {
-        const opts = options[cat]?.options || [];
-        const bestOpt = opts.reduce((max, opt) =>
-          opt.score > (max?.score || 0) ? opt : max, null);
-        if (bestOpt) best[cat] = bestOpt.id;
-      });
-      setConfig(best);
-      setAdAutoSelect(false);
+      const opts = options[category]?.options || [];
+      // Ad always picks the BEST option (highest score)
+      const bestOpt = opts.reduce((max, opt) =>
+        opt.score > (max?.score || 0) ? opt : max, null);
+      if (bestOpt) {
+        setConfig(prev => ({ ...prev, [category]: bestOpt.id }));
+      }
+      setAdWatchingCategory(null);
     }, 2000);
   };
 
@@ -108,7 +130,6 @@ function MergerConfigurator() {
 
     return (
       <div className={`h-screen flex flex-col ${t.bg.primary} transition-colors duration-300`}>
-        {/* Header */}
         <div className={`flex-shrink-0 flex items-center gap-3 px-4 py-3
           ${t.bg.secondary} border-b ${t.border.default}`}>
           <button onClick={() => navigate('/business')}
@@ -120,7 +141,6 @@ function MergerConfigurator() {
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-3 py-4 space-y-3">
-          {/* Selected Options (Locked) */}
           {categories.map(catKey => {
             const catDef = options[catKey];
             if (!catDef) return null;
@@ -153,7 +173,6 @@ function MergerConfigurator() {
                       </p>
                     </div>
                   </div>
-                  {/* Lock or Check */}
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center
                     ${timerComplete
                       ? 'bg-green-500/15'
@@ -169,7 +188,6 @@ function MergerConfigurator() {
             );
           })}
 
-          {/* Timer / Ready Section */}
           {timerComplete ? (
             <div className="pt-2">
               <button onClick={handleContinue}
@@ -187,7 +205,6 @@ function MergerConfigurator() {
                 Will be available in
               </p>
 
-              {/* Timer Display */}
               <div className="flex items-center justify-center gap-4 mb-4">
                 {[
                   { val: hours, label: 'hours' },
@@ -206,7 +223,6 @@ function MergerConfigurator() {
                 ))}
               </div>
 
-              {/* 4x Speed Button */}
               <button
                 onClick={handleBoostTimer}
                 disabled={adBoosting}
@@ -230,57 +246,67 @@ function MergerConfigurator() {
   // ═══ SELECTION MODE ═══
   return (
     <div className={`h-screen flex flex-col ${t.bg.primary} transition-colors duration-300`}>
-      {/* Header */}
-      <div className={`flex-shrink-0 flex items-center gap-3 px-4 py-3
-        ${t.bg.secondary} border-b ${t.border.default}`}>
+      <div className={`flex-shrink-0 flex items-center gap-3 px-4 py-3 ${t.bg.secondary} border-b ${t.border.default}`}>
         <button onClick={() => navigate(`/business/merger/trends/${flowId}`)}
-          className={`w-9 h-9 rounded-xl flex items-center justify-center
-            ${isDark ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-100 hover:bg-gray-200'}`}>
+          className={`w-9 h-9 rounded-xl flex items-center justify-center ${isDark ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-100 hover:bg-gray-200'}`}>
           <ArrowLeft className={`w-4 h-4 ${t.text.primary}`} />
         </button>
         <h1 className={`text-lg font-bold ${t.text.primary}`}>Collection Information</h1>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-3 py-4 space-y-4 pb-40">
+      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-3 py-4 space-y-4 pb-36">
         <div className="text-center px-4">
           <h2 className={`text-lg font-bold mb-1.5 ${t.text.primary}`}>Collection Configurator</h2>
           <p className={`text-[11px] leading-relaxed ${t.text.secondary}`}>
-            Based on trend information, select the correct collection parameters in the configurator.
+            Select configuration options for each category. Watch ads for guaranteed optimal selection,
+            or choose manually (risk of lower profit if mismatched).
           </p>
         </div>
 
-        {/* Ad Auto-Select */}
-        <button onClick={handleAutoSelect} disabled={adAutoSelect}
-          className={`w-full rounded-xl p-3.5 text-left transition-all active:scale-[0.98]
-            border-2 border-dashed ${adAutoSelect ? 'opacity-50' : ''}
-            ${isDark ? 'border-yellow-500/30 bg-yellow-500/5' : 'border-yellow-300 bg-yellow-50'}`}>
-          <div className="flex items-center gap-3">
-            <MonitorPlay className="w-5 h-5 text-yellow-500" />
-            <div>
-              <p className="text-sm font-bold text-yellow-500">
-                {adAutoSelect ? 'Watching Ad...' : 'Auto-Select Best Options'}
-              </p>
-              <p className={`text-[10px] ${t.text.tertiary}`}>
-                Watch ad to automatically select optimal configuration
-              </p>
-            </div>
-          </div>
-        </button>
-
-        {/* Category Lists */}
+        {/* Category Lists with Per-Category Ad */}
         {categories.map(catKey => {
           const catDef = options[catKey];
           if (!catDef) return null;
           const CatIcon = catDef.icon;
           const selected = config[catKey];
+          const isWatchingThisAd = adWatchingCategory === catKey;
 
           return (
             <div key={catKey}>
+              {/* Per-Category Ad Button */}
+              <button
+                onClick={() => handleAdAutoSelect(catKey)}
+                disabled={isWatchingThisAd || adWatchingCategory !== null || selected !== null}
+                className={`w-full rounded-xl p-3 mb-2 text-left transition-all active:scale-[0.98]
+                  border-2 border-dashed
+                  ${isWatchingThisAd ? 'opacity-50 animate-pulse' : ''}
+                  ${selected !== null ? 'opacity-30' : ''}
+                  ${isDark ? 'border-yellow-500/30 bg-yellow-500/5' : 'border-yellow-300 bg-yellow-50'}`}>
+                <div className="flex items-center gap-3">
+                  <MonitorPlay className="w-4 h-4 text-yellow-500" />
+                  <div>
+                    <p className="text-xs font-bold text-yellow-500">
+                      {isWatchingThisAd
+                        ? 'Watching Ad...'
+                        : selected !== null
+                          ? '✓ Selected'
+                          : `Auto-Select Best ${catDef.label}`
+                      }
+                    </p>
+                    <p className={`text-[9px] ${t.text.tertiary}`}>
+                      Watch ad for guaranteed profitable option
+                    </p>
+                  </div>
+                </div>
+              </button>
+
+              {/* Category Label */}
               <div className="flex items-center gap-2 mb-2">
                 <CatIcon className={`w-4 h-4 ${t.text.brand}`} />
                 <p className={`text-sm font-bold ${t.text.primary}`}>{catDef.label}</p>
               </div>
+
+              {/* Options */}
               <div className="space-y-1.5">
                 {catDef.options.map(opt => {
                   const isSelected = selected === opt.id;
@@ -318,7 +344,7 @@ function MergerConfigurator() {
         })}
       </div>
 
-      {/* Fixed Bottom */}
+      {/* Fixed Bottom Bar */}
       <div className={`flex-shrink-0 border-t ${t.border.default} ${t.bg.secondary}`}>
         <div className="flex items-center justify-around px-3 py-2">
           {categories.map(catKey => {

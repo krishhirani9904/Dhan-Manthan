@@ -5,6 +5,7 @@ import { useTheme } from '../../../hooks/useTheme';
 import { theme } from '../../../design/tokens';
 import { useGame } from '../../../hooks/useGame';
 import { MERGER_TRENDS } from '../../../data/mergerFlowData';
+import { MERGER_BUSINESSES } from '../../../data/mergerBusinesses';
 import { formatCurrency } from '../../../utils/formatCurrency';
 
 function MergerTrends() {
@@ -15,8 +16,9 @@ function MergerTrends() {
   const { activeMergerFlows } = useGame();
 
   const flow = (activeMergerFlows || []).find(f => f.id === flowId);
+  const merger = flow ? MERGER_BUSINESSES.find(m => m.id === flow.mergerId) : null;
 
-  if (!flow) {
+  if (!flow || !merger) {
     return (
       <div className={`h-screen flex items-center justify-center ${t.bg.primary}`}>
         <p className={t.text.secondary}>Flow not found</p>
@@ -26,14 +28,15 @@ function MergerTrends() {
     );
   }
 
-  const trends = MERGER_TRENDS[flow.mergerId] || MERGER_TRENDS.fashion_brand;
+  const MergerIcon = merger.icon;
+  const trends = MERGER_TRENDS[flow.mergerId] || [];
 
   return (
     <div className={`h-screen flex flex-col ${t.bg.primary} transition-colors duration-300`}>
       {/* Header */}
       <div className={`flex-shrink-0 flex items-center gap-3 px-4 py-3
         ${t.bg.secondary} border-b ${t.border.default}`}>
-        <button onClick={() => navigate(`/business/merger/name/${flow.mergerId}`)}
+        <button onClick={() => navigate('/business')}
           className={`w-9 h-9 rounded-xl flex items-center justify-center
             ${isDark ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-100 hover:bg-gray-200'}`}>
           <ArrowLeft className={`w-4 h-4 ${t.text.primary}`} />
@@ -45,8 +48,8 @@ function MergerTrends() {
         {/* Icon & Title */}
         <div className="flex flex-col items-center text-center px-4">
           <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-3
-            ${isDark ? 'bg-purple-500/15' : 'bg-purple-50'}`}>
-            <TrendingUp className="w-8 h-8 text-purple-500" />
+            ${merger.color}`}>
+            <MergerIcon className="w-8 h-8 text-white" />
           </div>
           <h1 className={`text-xl font-bold mb-2 ${t.text.primary}`}>
             Current Trends
@@ -68,11 +71,14 @@ function MergerTrends() {
                 : 'bg-white border-gray-200 hover:border-purple-300'
               }`}>
 
-            {/* Gradient Banner */}
-            <div className={`h-20 relative overflow-hidden
+            {/* Gradient Banner with Emoji */}
+            <div className={`h-24 relative overflow-hidden
               ${isDark ? 'bg-gradient-to-br from-purple-900/50 to-gray-900'
                 : 'bg-gradient-to-br from-purple-100 to-blue-50'}`}>
-              <span className="absolute right-4 top-3 text-4xl opacity-30">
+              <span className="absolute right-4 top-2 text-5xl opacity-30">
+                {trend.emoji}
+              </span>
+              <span className="absolute left-4 bottom-3 text-3xl">
                 {trend.emoji}
               </span>
               <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
@@ -83,7 +89,7 @@ function MergerTrends() {
               <h3 className={`text-base font-bold mb-1.5 ${t.text.primary}`}>
                 {trend.title}
               </h3>
-              <p className={`text-[11px] leading-relaxed mb-3 ${t.text.secondary} line-clamp-3`}>
+              <p className={`text-[11px] leading-relaxed mb-3 ${t.text.secondary}`}>
                 {trend.description}
               </p>
 

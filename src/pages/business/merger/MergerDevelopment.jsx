@@ -1,3 +1,4 @@
+// src/pages/business/merger/MergerDevelopment.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
@@ -56,11 +57,11 @@ function MergerDevelopment() {
   const getCurrentPhaseIndex = () => {
     for (let i = 0; i < phases.length; i++) {
       const fp = flowPhases[i];
-      if (!fp || fp.status === 'locked') return i; // not started yet
-      if (fp.status === 'active') return i; // in progress
-      if (fp.status === 'completed') continue; // done, check next
+      if (!fp || fp.status === 'locked') return i;
+      if (fp.status === 'active') return i;
+      if (fp.status === 'completed') continue;
     }
-    return phases.length; // all complete
+    return phases.length;
   };
 
   const currentPhaseIdx = getCurrentPhaseIndex();
@@ -107,9 +108,16 @@ function MergerDevelopment() {
   };
 
   const handleComplete = () => {
+  const flow = (activeMergerFlows || []).find(f => f.id === flowId);
+  
+  if (flow?.isReconfigure) {
+    completeReconfigureFlow(flowId);
+  } else {
     completeMergerFlow(flowId);
-    navigate('/business');
-  };
+  }
+  
+  navigate('/business');
+};
 
   return (
     <div className={`h-screen flex flex-col ${t.bg.primary} transition-colors duration-300`}>
@@ -179,7 +187,12 @@ function MergerDevelopment() {
                     flex-shrink-0 ${phase.color}`}>
                     <PhaseIcon className="w-5.5 h-5.5 text-white" />
                   </div>
-                  <p className={`text-sm font-bold ${t.text.primary}`}>{phase.title}</p>
+                  <div className="flex-1">
+                    <p className={`text-sm font-bold ${t.text.primary}`}>{phase.title}</p>
+                    <p className={`text-[10px] ${t.text.tertiary}`}>
+                      Step {currentPhaseIdx + 1} of {phases.length}
+                    </p>
+                  </div>
                 </div>
 
                 {/* Description */}
@@ -248,23 +261,31 @@ function MergerDevelopment() {
                           : 'bg-yellow-50 text-yellow-600 border border-yellow-200'
                         } active:scale-95`}>
                       <Zap className="w-4 h-4" />
-                      {adWatching ? 'Watching Ad...' : 'Watch Ad for 4× Speed'}
+                      {adWatching ? 'Watching Ad...' : 'Watch Ad For Reduce Time'}
                     </button>
                   </>
+                )}
+
+                {/* State: Phase just completed — show next step text */}
+                {isPhaseCompleted(currentPhaseIdx) && currentPhaseIdx + 1 < phases.length && (
+                  <div className="mt-3">
+                    <p className="text-xs font-bold text-green-500 mb-1">✅ Phase Completed!</p>
+                    <p className={`text-[11px] ${t.text.secondary}`}>
+                      Next: {phases[currentPhaseIdx + 1].title}
+                    </p>
+                  </div>
                 )}
               </div>
             </div>
           );
         })()}
 
-        {/* ═══ Completed Phases (Simple Indicators) ═══ */}
-        {flowPhases.map((fp, idx) => {
-          if (!isPhaseCompleted(idx)) return null;
-          const phase = phases[idx];
-          if (!phase) return null;
+        {/* ═══ Completed Phases ═══ */}
+        {phases.map((phase, idx) => {
+          if (!isPhaseCompleted(idx) || idx === currentPhaseIdx) return null;
           const PhaseIcon = phase.icon;
           return (
-            <div key={idx}
+            <div key={`completed-${idx}`}
               className={`rounded-xl p-3 flex items-center gap-3
                 ${isDark ? 'bg-green-500/5 border border-green-500/20' : 'bg-green-50 border border-green-200'}`}>
               <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-green-500">
@@ -279,11 +300,11 @@ function MergerDevelopment() {
           );
         })}
 
-        {/* ═══ Locked Phases (Minimal) ═══ */}
+        {/* ═══ Locked Phases ═══ */}
         {phases.map((phase, idx) => {
-          if (idx <= currentPhaseIdx) return null; // current or completed
+          if (idx <= currentPhaseIdx) return null;
           return (
-            <div key={idx}
+            <div key={`locked-${idx}`}
               className={`rounded-xl p-3 flex items-center gap-3 opacity-40
                 ${t.bg.card} border ${t.border.default}`}>
               <div className={`w-9 h-9 rounded-xl flex items-center justify-center

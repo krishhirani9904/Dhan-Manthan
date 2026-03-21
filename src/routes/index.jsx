@@ -1,3 +1,4 @@
+// src/routes/index.jsx
 import { Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from '../layouts/MainLayout';
 
@@ -26,6 +27,7 @@ import MergerTrends from '../pages/business/merger/MergerTrends';
 import MergerAnalysts from '../pages/business/merger/MergerAnalysts';
 import MergerConfigurator from '../pages/business/merger/MergerConfigurator';
 import MergerDevelopment from '../pages/business/merger/MergerDevelopment';
+import MergedBusinessDetail from '../pages/business/merger/MergedBusinessDetail';
 
 import Investing from '../pages/investing/Investing';
 import Items from '../pages/items/Items';
@@ -79,7 +81,6 @@ import IslandsPage from '../pages/items/Islands';
 function AppRoutes() {
   return (
     <Routes>
-      {/* Main tabs with layout */}
       <Route element={<MainLayout />}>
         <Route index element={<Earnings />} />
         <Route path="/earnings" element={<Navigate to="/" replace />} />
@@ -89,11 +90,9 @@ function AppRoutes() {
         <Route path="/profile" element={<Profile />} />
       </Route>
 
-      {/* Cards */}
       <Route path="/cards" element={<CardCollection />} />
       <Route path="/cards/:cardId" element={<CardDetail />} />
 
-      {/* Profile sub-pages */}
       <Route path="/profile/taxes" element={<TaxesPage />} />
       <Route path="/profile/forbes" element={<ForbesPage />} />
       <Route path="/profile/statistics" element={<StatisticsPage />} />
@@ -122,6 +121,8 @@ function AppRoutes() {
       <Route path="/business/merger/analysts/:flowId/:trendId" element={<MergerAnalysts />} />
       <Route path="/business/merger/configurator/:flowId" element={<MergerConfigurator />} />
       <Route path="/business/merger/development/:flowId" element={<MergerDevelopment />} />
+      {/* NEW: Completed merger detail */}
+      <Route path="/business/merged/:mergedId" element={<MergedBusinessDetail />} />
 
       {/* Stocks */}
       <Route path="/investing/stocks/portfolio" element={<StockPortfolio />} />

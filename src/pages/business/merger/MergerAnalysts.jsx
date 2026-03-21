@@ -1,6 +1,6 @@
 // src/pages/business/merger/MergerAnalysts.jsx
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, BarChart3 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useTheme } from '../../../hooks/useTheme';
 import { theme } from '../../../design/tokens';
 import { useGame } from '../../../hooks/useGame';
@@ -99,7 +99,7 @@ function MergerAnalysts() {
         </div>
 
         {/* Launch Section */}
-        <div className="pt-2">
+        <div className="pt-2 pb-4">
           <h3 className={`text-sm font-bold mb-1 ${t.text.primary}`}>
             Launch Collection
           </h3>

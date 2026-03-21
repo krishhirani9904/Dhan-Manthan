@@ -5,6 +5,7 @@ import {
   Flame, Rocket, Crown, Building2
 } from 'lucide-react';
 import { getCategoryById } from './businessCategories';
+import { getTotalOutletsForCategory, getUniqueCategoryCount } from '../context/helpers/incomeCalculator';
 
 export const MERGER_BUSINESSES = [
   {
@@ -16,8 +17,8 @@ export const MERGER_BUSINESSES = [
     investment: 50000,
     incomePerHour: 5000,
     requirements: [
-      { categoryId: 'chai-stall', count: 2, label: 'Chai Stall' },
-      { categoryId: 'restaurant', subCategoryId: 'street-food', count: 1, label: 'Street Food Stall' },
+      { categoryId: 'chai-stall', count: 5, label: 'Chai Stalls' },
+      { categoryId: 'restaurant', subCategoryId: 'street-food', count: 3, label: 'Street Food Stalls' },
     ],
   },
   {
@@ -29,8 +30,8 @@ export const MERGER_BUSINESSES = [
     investment: 100000,
     incomePerHour: 8000,
     requirements: [
-      { categoryId: 'salon', count: 2, label: 'Salon' },
-      { categoryId: 'medical-store', count: 1, label: 'Medical Store' },
+      { categoryId: 'salon', count: 5, label: 'Salons' },
+      { categoryId: 'medical-store', count: 3, label: 'Medical Stores' },
     ],
   },
   {
@@ -42,9 +43,9 @@ export const MERGER_BUSINESSES = [
     investment: 500000,
     incomePerHour: 40000,
     requirements: [
-      { categoryId: 'shop', subCategoryId: 'small-chain', count: 1, label: 'Small Chain Shop' },
-      { categoryId: 'shop', subCategoryId: 'large-chain', count: 1, label: 'Large Chain Shop' },
-      { categoryId: 'shipping', count: 1, label: 'Shipping Company' },
+      { categoryId: 'shop', subCategoryId: 'small-chain', count: 5, label: 'Small Chain Shops' },
+      { categoryId: 'shop', subCategoryId: 'large-chain', count: 3, label: 'Large Chain Shops' },
+      { categoryId: 'shipping', count: 2, label: 'Shipping Companies' },
     ],
   },
   {
@@ -56,9 +57,9 @@ export const MERGER_BUSINESSES = [
     investment: 1000000,
     incomePerHour: 80000,
     requirements: [
-      { categoryId: 'restaurant', subCategoryId: 'family-restaurant', count: 1, label: 'Family Restaurant' },
-      { categoryId: 'restaurant', subCategoryId: 'fine-dining', count: 1, label: 'Fine Dining' },
-      { categoryId: 'ice-cream', count: 2, label: 'Ice Cream Parlour' },
+      { categoryId: 'restaurant', subCategoryId: 'family-restaurant', count: 5, label: 'Family Restaurants' },
+      { categoryId: 'restaurant', subCategoryId: 'fine-dining', count: 3, label: 'Fine Dining' },
+      { categoryId: 'ice-cream', count: 5, label: 'Ice Cream Parlours' },
     ],
   },
   {
@@ -70,9 +71,9 @@ export const MERGER_BUSINESSES = [
     investment: 2000000,
     incomePerHour: 150000,
     requirements: [
-      { categoryId: 'garage', count: 1, label: 'Auto Garage' },
-      { categoryId: 'car-dealership', count: 1, label: 'Car Dealership' },
-      { categoryId: 'factory', count: 1, label: 'Factory' },
+      { categoryId: 'garage', count: 5, label: 'Auto Garages' },
+      { categoryId: 'car-dealership', count: 3, label: 'Car Dealerships' },
+      { categoryId: 'factory', count: 2, label: 'Factories' },
     ],
   },
   {
@@ -84,8 +85,8 @@ export const MERGER_BUSINESSES = [
     investment: 4000000,
     incomePerHour: 300000,
     requirements: [
-      { categoryId: 'taxi', count: 2, label: 'Taxi Company' },
-      { categoryId: 'shipping', count: 1, label: 'Shipping Company' },
+      { categoryId: 'taxi', count: 8, label: 'Taxi Companies' },
+      { categoryId: 'shipping', count: 5, label: 'Shipping Companies' },
     ],
   },
   {
@@ -97,9 +98,9 @@ export const MERGER_BUSINESSES = [
     investment: 5000000,
     incomePerHour: 350000,
     requirements: [
-      { categoryId: 'shop', subCategoryId: 'large-chain', count: 2, label: 'Large Chain Shop' },
-      { categoryId: 'factory', count: 1, label: 'Factory' },
-      { categoryId: 'shipping', count: 1, label: 'Shipping Company' },
+      { categoryId: 'shop', subCategoryId: 'large-chain', count: 8, label: 'Large Chain Shops' },
+      { categoryId: 'factory', count: 5, label: 'Factories' },
+      { categoryId: 'shipping', count: 3, label: 'Shipping Companies' },
     ],
   },
   {
@@ -111,8 +112,8 @@ export const MERGER_BUSINESSES = [
     investment: 3000000,
     incomePerHour: 200000,
     requirements: [
-      { categoryId: 'tuition', count: 2, label: 'Tuition Center' },
-      { categoryId: 'it-company', count: 1, label: 'IT Company' },
+      { categoryId: 'tuition', count: 8, label: 'Tuition Centers' },
+      { categoryId: 'it-company', count: 3, label: 'IT Companies' },
     ],
   },
   {
@@ -124,9 +125,9 @@ export const MERGER_BUSINESSES = [
     investment: 20000000,
     incomePerHour: 1200000,
     requirements: [
-      { categoryId: 'hospital', subCategoryId: 'clinic', count: 1, label: 'Clinic' },
-      { categoryId: 'medical-store', count: 2, label: 'Medical Store' },
-      { categoryId: 'shipping', count: 1, label: 'Shipping (Medical Supply)' },
+      { categoryId: 'hospital', subCategoryId: 'clinic', count: 5, label: 'Clinics' },
+      { categoryId: 'medical-store', count: 8, label: 'Medical Stores' },
+      { categoryId: 'shipping', count: 3, label: 'Shipping (Medical Supply)' },
     ],
   },
   {
@@ -138,8 +139,8 @@ export const MERGER_BUSINESSES = [
     investment: 50000000,
     incomePerHour: 2500000,
     requirements: [
-      { categoryId: 'it-company', count: 2, label: 'IT Company' },
-      { categoryId: 'bank', count: 1, label: 'Bank' },
+      { categoryId: 'it-company', count: 10, label: 'IT Companies' },
+      { categoryId: 'bank', count: 3, label: 'Banks' },
     ],
   },
   {
@@ -151,9 +152,9 @@ export const MERGER_BUSINESSES = [
     investment: 100000000,
     incomePerHour: 5000000,
     requirements: [
-      { categoryId: 'hotel', count: 2, label: 'Hotel (any type)' },
-      { categoryId: 'restaurant', count: 2, label: 'Restaurant (any type)' },
-      { categoryId: 'sports-club', count: 1, label: 'Sports Club' },
+      { categoryId: 'hotel', count: 8, label: 'Hotels (any type)' },
+      { categoryId: 'restaurant', count: 10, label: 'Restaurants (any type)' },
+      { categoryId: 'sports-club', count: 3, label: 'Sports Clubs' },
     ],
   },
   {
@@ -165,9 +166,9 @@ export const MERGER_BUSINESSES = [
     investment: 250000000,
     incomePerHour: 10000000,
     requirements: [
-      { categoryId: 'oil-gas', count: 1, label: 'Oil & Gas Company' },
-      { categoryId: 'factory', count: 2, label: 'Factory' },
-      { categoryId: 'shipping', count: 1, label: 'Shipping Company' },
+      { categoryId: 'oil-gas', count: 5, label: 'Oil & Gas Companies' },
+      { categoryId: 'factory', count: 8, label: 'Factories' },
+      { categoryId: 'shipping', count: 5, label: 'Shipping Companies' },
     ],
   },
   {
@@ -179,7 +180,7 @@ export const MERGER_BUSINESSES = [
     investment: 500000000,
     incomePerHour: 25000000,
     requirements: [
-      { type: 'categories', count: 7, label: 'Own 7 Different Business Categories' },
+      { type: 'categories', count: 10, label: 'Own 10 Different Business Categories' },
     ],
   },
   {
@@ -191,42 +192,70 @@ export const MERGER_BUSINESSES = [
     investment: 1000000000,
     incomePerHour: 30000000,
     requirements: [
-      { categoryId: 'airlines', count: 1, label: 'Airlines' },
-      { categoryId: 'it-company', count: 2, label: 'IT Company' },
-      { categoryId: 'oil-gas', count: 1, label: 'Oil & Gas' },
-      { categoryId: 'factory', count: 1, label: 'Factory' },
+      { categoryId: 'airlines', count: 5, label: 'Airlines' },
+      { categoryId: 'it-company', count: 10, label: 'IT Companies' },
+      { categoryId: 'oil-gas', count: 5, label: 'Oil & Gas' },
+      { categoryId: 'factory', count: 8, label: 'Factories' },
     ],
   },
 ];
 
-export const getMergerStatus = (merger, ownedBusinesses, mergedBusinesses) => {
-  const isActivated = (mergedBusinesses || []).some(m => m.mergerId === merger.id);
+export const getMergerStatus = (merger, ownedBusinesses, mergedBusinesses, activeMergerFlows, state) => {
+  // Only block if same merger is currently IN PROGRESS (not completed)
+  const isInProgress = (activeMergerFlows || []).some(f => f.mergerId === merger.id);
 
   const requirementStatuses = merger.requirements.map(req => {
     if (req.type === 'categories') {
-      const unique = new Set((ownedBusinesses || []).map(b => b.categoryId));
-      return { ...req, current: unique.size, met: unique.size >= req.count };
+      const unique = getUniqueCategoryCount(ownedBusinesses);
+      return { ...req, current: unique, met: unique >= req.count };
     }
 
-    const matching = (ownedBusinesses || []).filter(b => {
-      if (b.categoryId !== req.categoryId) return false;
-      if (req.subCategoryId && b.subCategoryId !== req.subCategoryId) return false;
-      return true;
-    });
+    const total = getTotalOutletsForCategory(
+      ownedBusinesses, req.categoryId, req.subCategoryId
+    );
 
-    return { ...req, current: matching.length, met: matching.length >= req.count };
+    return { ...req, current: total, met: total >= req.count };
   });
 
   const allRequirementsMet = requirementStatuses.every(r => r.met);
   const metCount = requirementStatuses.filter(r => r.met).length;
 
+  // Calculate portfolio value for investment check
+  const portfolioValue = state ? calcPortfolioValueSimple(state) : 0;
+  const investmentMet = state ? portfolioValue >= merger.investment : true;
+
   return {
-    isActivated,
+    isInProgress,
     requirementStatuses,
     allRequirementsMet,
     metCount,
     totalRequirements: requirementStatuses.length,
+    portfolioValue,
+    investmentMet,
   };
+};
+
+// Simple portfolio value calc (no circular import)
+const calcPortfolioValueSimple = (state) => {
+  let total = state.balance || 0;
+
+  (state.ownedStocks || []).forEach(st => {
+    total += (st.quantity || 0) * (st.avgBuyPrice || 0);
+  });
+
+  (state.ownedCrypto || []).forEach(c => {
+    total += (c.quantity || 0) * (c.avgBuyPrice || 0);
+  });
+
+  (state.ownedProperties || []).forEach(p => {
+    total += p.purchasePrice || 0;
+  });
+
+  (state.ownedBusinesses || []).forEach(b => {
+    total += b.cost || 0;
+  });
+
+  return total;
 };
 
 export const getRequirementIcon = (req) => {

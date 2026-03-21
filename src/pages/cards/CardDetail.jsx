@@ -64,7 +64,7 @@ function CardDetail() {
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide
         px-4 py-5 pb-4 max-w-lg mx-auto w-full space-y-4">
 
-        {/* Card Preview - using same CreditCard component with same cardNumber */}
+        {/* Card Preview */}
         <CreditCard
           tier={tier}
           balance={balance}

@@ -7,6 +7,8 @@ import { useGame } from '../../hooks/useGame';
 import { AIRCRAFT_DESIGN_OPTIONS } from '../../data/itemsData';
 import { formatCurrency } from '../../utils/formatCurrency';
 import AdSpace from '../../components/common/AdSpace';
+import ItemImage from '../../components/common/ItemImage';
+
 
 function Hangar() {
   const navigate = useNavigate();
@@ -59,7 +61,16 @@ function Hangar() {
                 <p className={`text-[10px] text-center ${t.text.tertiary} mt-1`}>
                   {ac.teamHired ? 'Team Hired' : 'No Team'} | {design.name}
                 </p>
-                <div className="text-center text-5xl mt-2">{ac.image}</div>
+                {/* <div className="text-center text-5xl mt-2">{ac.image}</div> */}
+                 {/* <div className="flex justify-center mt-2"> <ItemImage image={ac.image} alt={ac.name} className="text-5xl" imgClassName="h-20 w-auto object-contain" /> </div> */}
+                 {/* ✅ Box size = h-24, image auto-fits */}
+<div className="h-24 flex items-center justify-center mt-2">
+  <ItemImage
+    image={ac.image}
+    alt={ac.name}
+    className="text-5xl"
+  />
+</div>
               </button>
             );
           })

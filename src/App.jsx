@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { GameProvider } from './context/GameContext';
+import { EarningsBridge } from './components/EarningsBridge';
 import AppRoutes from './routes';
 import SplashScreen from './pages/SplashScreen';
 
@@ -19,7 +20,9 @@ function App() {
     <BrowserRouter>
       <ThemeProvider>
         <GameProvider>
-          <AppRoutes />
+          <EarningsBridge>
+            <AppRoutes />
+          </EarningsBridge>
         </GameProvider>
       </ThemeProvider>
     </BrowserRouter>

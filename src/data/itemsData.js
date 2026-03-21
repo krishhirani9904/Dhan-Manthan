@@ -1,3 +1,6 @@
+import airplanePng from '../assets/airplane.png';
+
+
 export const CARS = [
   { id: 'car_1', name: 'City Runner', price: 800000, image: '🚗', category: 'sedan' },
   { id: 'car_2', name: 'Urban Glide', price: 1500000, image: '🚙', category: 'suv' },
@@ -20,13 +23,21 @@ export const EQUIPMENT_OPTIONS = [
   { id: 'premium', name: 'Premium +40%', priceMultiplier: 1.40 },
 ];
 
+// export const AIRCRAFT = [
+//   { id: 'air_1', name: 'Sky Hopper', price: 15000000, image: '🛩️' },
+//   { id: 'air_2', name: 'Cloud Rider', price: 50000000, image: '✈️' },
+//   { id: 'air_3', name: 'Storm Chaser', price: 120000000, image: '🛩️' },
+//   { id: 'air_4', name: 'Eagle One', price: 300000000, image: '✈️' },
+//   { id: 'air_5', name: 'Falcon Elite', price: 750000000, image: '🛩️' },
+//   { id: 'air_6', name: 'Phoenix Ultra', price: 2000000000, image: '✈️' },
+// ];
 export const AIRCRAFT = [
-  { id: 'air_1', name: 'Sky Hopper', price: 15000000, image: '🛩️' },
-  { id: 'air_2', name: 'Cloud Rider', price: 50000000, image: '✈️' },
-  { id: 'air_3', name: 'Storm Chaser', price: 120000000, image: '🛩️' },
-  { id: 'air_4', name: 'Eagle One', price: 300000000, image: '✈️' },
-  { id: 'air_5', name: 'Falcon Elite', price: 750000000, image: '🛩️' },
-  { id: 'air_6', name: 'Phoenix Ultra', price: 2000000000, image: '✈️' },
+  { id: 'air_1', name: 'Sky Hopper', price: 15000000, image: airplanePng, isEmoji: false },
+  { id: 'air_2', name: 'Cloud Rider', price: 50000000, image: '✈️', isEmoji: true },
+  { id: 'air_3', name: 'Storm Chaser', price: 120000000, image: '🛩️', isEmoji: true },
+  { id: 'air_4', name: 'Eagle One', price: 300000000, image: '✈️', isEmoji: true },
+  { id: 'air_5', name: 'Falcon Elite', price: 750000000, image: '🛩️', isEmoji: true },
+  { id: 'air_6', name: 'Phoenix Ultra', price: 2000000000, image: '✈️', isEmoji: true },
 ];
 
 export const AIRCRAFT_TEAM_COST_PERCENT = 0.10;

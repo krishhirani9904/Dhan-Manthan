@@ -7,6 +7,7 @@ import { useGame } from '../../hooks/useGame';
 import { AIRCRAFT } from '../../data/itemsData';
 import { formatCurrency } from '../../utils/formatCurrency';
 import AdSpace from '../../components/common/AdSpace';
+import ItemImage from '../../components/common/ItemImage';
 
 function AircraftShop() {
   const navigate = useNavigate();
@@ -31,7 +32,16 @@ function AircraftShop() {
             className={`w-full rounded-xl p-3 text-left transition-all active:scale-[0.98] ${t.bg.card} border ${t.border.default}`}>
             <p className={`text-sm font-bold ${t.text.primary}`}>{ac.name}</p>
             <p className={`text-xs ${t.text.tertiary}`}>Price from <span className={`font-bold ${t.text.brand}`}>{formatCurrency(ac.price)}</span></p>
-            <div className="text-center text-4xl mt-2">{ac.image}</div>
+            {/* <div className="text-center text-4xl mt-2">{ac.image}</div> */}
+
+            {/* <div className="flex justify-center mt-2">{ac.isEmoji ? (<span className="text-4xl">{ac.image}</span>) : (<img src={ac.image} alt={ac.name} className="w-16 h-16 object-contain" />)} </div> */}
+            <div className="h-20 flex items-center justify-center mt-2">
+  <ItemImage
+    image={ac.image}
+    alt={ac.name}
+    className="text-4xl"
+  />
+</div>
           </button>
         ))}
       </div>

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { IndianRupee, Sparkles, Play, Loader2, Zap } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { theme } from '../../design/tokens';
-import { useGame } from '../../hooks/useGame';
+import { useEarnings } from '../../hooks/useEarnings';
 
 function ClickerZone() {
   const { isDark } = useTheme();
@@ -10,7 +10,7 @@ function ClickerZone() {
   const {
     handleTap, currentPerClick, perClick, boostActive,
     adStatus, boostTimer, startAd
-  } = useGame();
+  } = useEarnings();
 
   const boostedPerClick = perClick * 2;
   const [scale, setScale] = useState(1);
@@ -21,6 +21,13 @@ function ClickerZone() {
   useEffect(() => {
     return () => timers.current.forEach(id => clearTimeout(id));
   }, []);
+
+  const formatClickAmount = (val) => {
+    if (val >= 10000000) return `₹${(val / 10000000).toFixed(1)}Cr`;
+    if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`;
+    if (val >= 1000) return `₹${(val / 1000).toFixed(1)}K`;
+    return `₹${val.toLocaleString('en-IN')}`;
+  };
 
   const handleClick = (e) => {
     setScale(0.88);
@@ -72,7 +79,7 @@ function ClickerZone() {
               }`}
           >
             <Play className="w-4 h-4 fill-current" />
-            Watch Ad • ₹{boostedPerClick}/click
+            Watch Ad • {formatClickAmount(boostedPerClick)}/click
           </button>
         )}
 
@@ -96,7 +103,7 @@ function ClickerZone() {
               : 'bg-purple-100 border border-purple-300 text-purple-600'
             }`}>
             <Zap className="w-3 h-3 fill-current" />
-            ₹{boostedPerClick}/click • {boostTimer}s
+            {formatClickAmount(boostedPerClick)}/click • {boostTimer}s
           </div>
         )}
       </div>
@@ -113,14 +120,14 @@ function ClickerZone() {
             animation: 'float-up 1s ease-out forwards',
           }}
         >
-          +₹{f.value}
+          +{formatClickAmount(f.value)}
         </div>
       ))}
 
       <div className="pointer-events-none flex flex-col items-center gap-1.5">
         <div
           style={{ transform: `scale(${scale})` }}
-          className={`w-30 h-30 sm:w-30 sm:h-30 md:w-34 md:h-34 lg:h-42 lg:w-42
+          className={`w-30 h-30 sm:w-30 sm:h-30 md:w-34 md:h-34 lg:h-32 lg:w-32
             rounded-full flex items-center justify-center
             shadow-2xl transition-transform duration-100 border-4
             ${boostActive
@@ -136,13 +143,16 @@ function ClickerZone() {
                 : <IndianRupee className="w-6 h-6 sm:w-8 sm:h-8 text-white" strokeWidth={2.5} />
               }
             </div>
-            <span className="text-white font-black lg:text-[18px] sm:text-xs">
+            <span className="text-white font-black lg:text-[16px] sm:text-xs">
               {boostActive ? '2X BOOST!' : 'TAP KARO!'}
             </span>
           </div>
         </div>
-        <p className={`lg:text-[14px] sm:text-[10px] ${t.text.tertiary}`}>
-          {boostActive ? '⚡ Tap Anywhere!' : `Tap Anywhere • ₹${currentPerClick}/click`}
+        <p className={`lg:text-[12px] sm:text-[10px] ${t.text.tertiary}`}>
+          {boostActive
+            ? `⚡ Tap Anywhere!`
+            : `Tap Anywhere • ${formatClickAmount(currentPerClick)}/click`
+          }
         </p>
       </div>
     </div>

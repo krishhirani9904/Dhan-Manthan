@@ -1210,20 +1210,17 @@ export const calculateConfigScore = (config, mergerId) => {
 };
 
 export const getIncomeMultiplier = (scorePercentage) => {
-  if (scorePercentage >= 90) return 1.5;
-  if (scorePercentage >= 80) return 1.35;
-  if (scorePercentage >= 70) return 1.2;
-  if (scorePercentage >= 60) return 1.1;
-  if (scorePercentage >= 50) return 1.0;
-  if (scorePercentage >= 40) return 0.9;
-  return 0.8;
+  if (scorePercentage >= 90) return 1.5;    
+  if (scorePercentage >= 80) return 1.35;   
+  if (scorePercentage >= 70) return 1.2;    
+  if (scorePercentage >= 60) return 1.1;    
+  if (scorePercentage >= 50) return 1.0;    
+  if (scorePercentage >= 40) return 0.85;   
+  if (scorePercentage >= 30) return 0.7;    
+  return 0.5;                               
 };
 
-
-// ═══════════════════════════════════════════════════════
 // MERGER PHASES — 4 development phases per merger type
-// ═══════════════════════════════════════════════════════
-
 const PHASE_DEFINITIONS = {
   street_food_chain: [
     {

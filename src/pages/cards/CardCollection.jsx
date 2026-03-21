@@ -38,26 +38,30 @@ function CardCollection() {
         </div>
       </div>
 
-      {/* Cards */}
-      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-3 py-3 pb-4 space-y-3">
-        {CARD_TIERS.map((tier, idx) => {
-          const unlocked = idx <= lastUnlockedIndex;
-          const isFirstLocked = idx === firstLockedIndex;
-          const isActive = activeCardId === tier.id;
+      {/* Cards Grid */}
+      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-3 py-3 pb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 gap-3
+          max-w-4xl mx-auto">
+          {CARD_TIERS.map((tier, idx) => {
+            const unlocked = idx <= lastUnlockedIndex;
+            const isFirstLocked = idx === firstLockedIndex;
+            const isActive = activeCardId === tier.id;
 
-          return (
-            <CreditCard
-              key={tier.id}
-              tier={tier}
-              balance={balance}
-              cardNumber={cardNumber}
-              isActive={isActive}
-              isUnlocked={unlocked}
-              isFirstLocked={isFirstLocked}
-              onClick={unlocked ? () => navigate(`/cards/${tier.id}`) : undefined}
-            />
-          );
-        })}
+            return (
+              <div key={tier.id} className="w-full max-w-md mx-auto lg:max-w-none">
+                <CreditCard
+                  tier={tier}
+                  balance={balance}
+                  cardNumber={cardNumber}
+                  isActive={isActive}
+                  isUnlocked={unlocked}
+                  isFirstLocked={isFirstLocked}
+                  onClick={unlocked ? () => navigate(`/cards/${tier.id}`) : undefined}
+                />
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       <AdSpace />
