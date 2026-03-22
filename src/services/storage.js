@@ -1,4 +1,4 @@
-import { STORAGE_KEY, THEME_KEY, BOOST_STORAGE_KEY, BOOST_STATE_VERSION } from '../config/constants';
+import { STORAGE_KEY, THEME_KEY, BOOST_STORAGE_KEY, BOOST_STATE_VERSION, AD_WATCH_TIME } from '../config/constants';
 
 export const storage = {
   saveGame: (state) => {
@@ -46,7 +46,8 @@ export const storage = {
 };
 
 // ═══════════════════════════════════════
-// BOOST STATE PERSISTENCE (NEW)
+// BOOST STATE PERSISTENCE
+// For future: When real ads are added, this helps restore state
 // ═══════════════════════════════════════
 
 export const boostStorage = {
@@ -54,10 +55,10 @@ export const boostStorage = {
     try {
       const data = {
         version: BOOST_STATE_VERSION,
-        boostActive: boostState.boostActive,
-        boostEndTime: boostState.boostEndTime,
-        adStatus: boostState.adStatus,
-        watchStartTime: boostState.watchStartTime,
+        boostActive: boostState.boostActive || false,
+        boostEndTime: boostState.boostEndTime || null,
+        adStatus: boostState.adStatus || 'idle',
+        watchStartTime: boostState.watchStartTime || null,
         savedAt: Date.now(),
       };
       localStorage.setItem(BOOST_STORAGE_KEY, JSON.stringify(data));
@@ -75,19 +76,23 @@ export const boostStorage = {
 
       const data = JSON.parse(raw);
       
+      // Version check
       if (data.version !== BOOST_STATE_VERSION) {
         boostStorage.clearBoostState();
         return null;
       }
 
+      // Check if boost already expired
       if (data.boostEndTime && Date.now() > data.boostEndTime) {
         boostStorage.clearBoostState();
         return null;
       }
 
+      // Check if watching state expired (use constant instead of magic number)
       if (data.adStatus === 'watching' && data.watchStartTime) {
         const watchedDuration = (Date.now() - data.watchStartTime) / 1000;
-        if (watchedDuration > 5) {
+        // If more than AD_WATCH_TIME + buffer passed, clear state
+        if (watchedDuration > AD_WATCH_TIME + 3) {
           boostStorage.clearBoostState();
           return null;
         }

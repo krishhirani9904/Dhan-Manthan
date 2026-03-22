@@ -19,3 +19,20 @@ function AdSpace() {
 }
 
 export default AdSpace;
+
+// import { useNetworkStatus } from '../../hooks/useNetworkStatus';
+
+// function AdSpace() {
+//   const { isOnline } = useNetworkStatus();
+
+//   return (
+//     <div className="flex-shrink-0 h-12 bg-gray-900 flex items-center justify-center
+//       border-t border-gray-800">
+//       <p className="text-gray-500 text-xs">
+//         {isOnline ? 'Advertisement Space' : 'Offline - Ads Unavailable'}
+//       </p>
+//     </div>
+//   );
+// }
+
+// export default AdSpace;

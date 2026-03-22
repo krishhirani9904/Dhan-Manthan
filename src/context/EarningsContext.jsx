@@ -126,6 +126,12 @@ export function EarningsProvider({
   // ─── Refs ───
   const timerRef = useRef(null);
   const stateChangeRef = useRef(null);
+  const adStatusRef = useRef(adStatus); // Track adStatus for timer callback
+
+  // Keep adStatusRef in sync
+  useEffect(() => {
+    adStatusRef.current = adStatus;
+  }, [adStatus]);
 
   // ─── Sync state to parent for saving (debounced) ───
   useEffect(() => {
@@ -149,7 +155,7 @@ export function EarningsProvider({
     return () => {
       if (stateChangeRef.current) clearTimeout(stateChangeRef.current);
     };
-  }, [level, perClick, upgradeCost, totalClicks, boostTimer, adStatus]);
+  }, [level, perClick, upgradeCost, totalClicks, boostTimer, adStatus, onStateChange]);
 
   // ─── Reset handler ───
   useEffect(() => {
@@ -169,48 +175,62 @@ export function EarningsProvider({
   }, [resetSignal]);
 
   // ═══════════════════════════════════════
-  // BOOST TIMER EFFECT
+  // BOOST TIMER EFFECT (FIXED)
   // ═══════════════════════════════════════
+  // Future: When real ads are added, startAd will show actual ad
+  // and only call activateBoost() after ad completion callback
 
   useEffect(() => {
+    // Clear any existing timer
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
 
-    if (boostTimer > 0) {
-      timerRef.current = setInterval(() => {
-        setBoostTimer(prev => {
-          if (prev <= 1) {
-            clearInterval(timerRef.current);
-            timerRef.current = null;
+    // Only run timer if we have time remaining and valid status
+    const shouldRunTimer = boostTimer > 0 && (adStatus === 'watching' || adStatus === 'boosted');
+    
+    if (!shouldRunTimer) return;
 
-            if (adStatus === 'watching') {
-              setAdStatus('boosted');
-              setBoostActive(true);
-              return CLICK_BOOST_DURATION;
-            }
+    timerRef.current = setInterval(() => {
+      setBoostTimer(prev => {
+        if (prev <= 1) {
+          // Timer finished - clear interval
+          clearInterval(timerRef.current);
+          timerRef.current = null;
 
-            if (adStatus === 'boosted') {
-              setAdStatus('idle');
-              setBoostActive(false);
-              return 0;
-            }
+          // Use ref to get current adStatus (avoids stale closure)
+          const currentStatus = adStatusRef.current;
 
+          if (currentStatus === 'watching') {
+            // Ad watch complete - activate boost
+            // Future: This will only trigger after real ad callback
+            setAdStatus('boosted');
+            setBoostActive(true);
+            return CLICK_BOOST_DURATION; // Start 30 second boost
+          }
+
+          if (currentStatus === 'boosted') {
+            // Boost period ended
+            setAdStatus('idle');
+            setBoostActive(false);
             return 0;
           }
-          return prev - 1;
-        });
-      }, 1000);
-    }
 
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    // Cleanup
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
     };
-  }, [adStatus, boostTimer > 0]);
+  }, [adStatus, boostTimer > 0 ? 1 : 0]); // Convert to stable value
 
   // ═══════════════════════════════════════
   // COMPUTED VALUES
@@ -281,10 +301,39 @@ export function EarningsProvider({
     return true;
   }, [level, upgradeCost, gameBalance, isMaxLevel, onBalanceChange]);
 
+  // START AD - Currently timer-based, future: real ad integration
+  // Future implementation:
+  // 1. Show actual ad using ad SDK
+  // 2. Wait for ad completion callback
+  // 3. Only then call internal activateBoost()
   const startAd = useCallback(() => {
-    if (adStatus !== 'idle') return;
+    if (adStatus !== 'idle') return false;
+    
+    // Currently: Start watching timer (simulates ad)
+    // Future: This will trigger actual ad SDK
     setAdStatus('watching');
     setBoostTimer(AD_WATCH_TIME);
+    
+    return true;
+  }, [adStatus]);
+
+  // Future: This will be called by ad completion callback
+  const activateBoost = useCallback(() => {
+    setAdStatus('boosted');
+    setBoostActive(true);
+    setBoostTimer(CLICK_BOOST_DURATION);
+  }, []);
+
+  // Cancel ad watching (for future: if user closes ad early)
+  const cancelAd = useCallback(() => {
+    if (adStatus === 'watching') {
+      setAdStatus('idle');
+      setBoostTimer(0);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    }
   }, [adStatus]);
 
   const resetEarnings = useCallback(() => {
@@ -331,12 +380,14 @@ export function EarningsProvider({
     handleTap,
     handleUpgrade,
     startAd,
+    activateBoost,  // For future ad integration
+    cancelAd,       // For future ad integration
     resetEarnings,
   }), [
     level, perClick, upgradeCost, totalClicks,
     boostActive, boostTimer, adStatus,
     currentPerClick, nextPerClick, isMaxLevel, availableUpgrades, upgradeProgress,
-    handleTap, handleUpgrade, startAd, resetEarnings,
+    handleTap, handleUpgrade, startAd, activateBoost, cancelAd, resetEarnings,
   ]);
 
   return (

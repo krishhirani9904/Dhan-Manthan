@@ -3,10 +3,12 @@ import { IndianRupee, Sparkles, Play, Loader2, Zap } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { theme } from '../../design/tokens';
 import { useEarnings } from '../../hooks/useEarnings';
+import { useNetworkStatus } from '../../hooks/useNetworkStatus'; // ← NEW
 
 function ClickerZone() {
   const { isDark } = useTheme();
   const t = isDark ? theme.dark : theme.light;
+  const { isOnline } = useNetworkStatus(); // ← NEW
   const {
     handleTap, currentPerClick, perClick, boostActive,
     adStatus, boostTimer, startAd
@@ -51,6 +53,19 @@ function ClickerZone() {
     handleTap();
   };
 
+  // ← NEW: Handle ad button click with network check
+  const handleAdClick = (e) => {
+    e.stopPropagation();
+    
+    // Check if online before starting ad
+    if (!isOnline) {
+      // NetworkStatus component will show the warning
+      return;
+    }
+    
+    startAd();
+  };
+
   return (
     <div
       ref={containerRef}
@@ -69,17 +84,25 @@ function ClickerZone() {
       >
         {adStatus === 'idle' && (
           <button
-            onClick={startAd}
+            onClick={handleAdClick} // ← UPDATED
+            disabled={!isOnline} // ← NEW: Disable if offline
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full
               text-[10px] font-bold transition-all
               active:scale-90 hover:scale-105 shadow-lg
-              ${isDark
-                ? 'bg-purple-500/20 border border-purple-500/40 text-purple-300 shadow-purple-500/10'
-                : 'bg-purple-50 border border-purple-200 text-purple-600 shadow-purple-100'
+              ${!isOnline 
+                ? isDark
+                  ? 'bg-gray-800 border border-gray-700 text-gray-500 cursor-not-allowed'
+                  : 'bg-gray-200 border border-gray-300 text-gray-400 cursor-not-allowed'
+                : isDark
+                  ? 'bg-purple-500/20 border border-purple-500/40 text-purple-300 shadow-purple-500/10'
+                  : 'bg-purple-50 border border-purple-200 text-purple-600 shadow-purple-100'
               }`}
           >
             <Play className="w-4 h-4 fill-current" />
-            Watch Ad • {formatClickAmount(boostedPerClick)}/click
+            {isOnline 
+              ? `Watch Ad • ${formatClickAmount(boostedPerClick)}/click`
+              : 'Offline - No Ads'
+            }
           </button>
         )}
 
