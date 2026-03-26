@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Crown } from 'lucide-react';
 import { storage } from '../services/storage';
+import logo from '../assets/logo2.png';
 
 function SplashScreen() {
   const [isDark] = useState(() => {
@@ -13,42 +14,36 @@ function SplashScreen() {
   });
 
   return (
-    <div
-      className={`fixed inset-0 flex flex-col items-center justify-center
-        ${isDark ? 'bg-gray-950' : 'bg-gray-50'}`}
-    >
+    <div className={`fixed inset-0 flex flex-col items-center justify-center ${isDark ? 'bg-gray-950' : 'bg-gray-50'}`} >
       {/* Crown Logo */}
+      {/* <div className="relative mb-8">
+        <div className={`w-24 h-24 rounded-full bg-gradient-to-br from-yellow-400 to-amber-600 flex items-center justify-center shadow-2xl ${isDark ? 'shadow-yellow-500/30' : 'shadow-yellow-500/20'}`} >
+          <Crown className="w-12 h-12 text-white" strokeWidth={2} /> </div> */}
+
+        {/* Ping Ring */}
+        {/* <div className={`absolute inset-0 w-24 h-24 rounded-full border-2 animate-ping ${isDark ? 'border-yellow-400/30' : 'border-yellow-500/25'}`} /> </div> */}
+
+      {/* Title */}
+      {/* <h1 className={`text-3xl font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`} > Dhan
+        <span className={isDark ? 'text-yellow-500' : 'text-yellow-600'}> -Manthan </span> </h1> */}
+
+
+      {/* zonbizz Logo */}
       <div className="relative mb-8">
-        <div
-          className={`w-24 h-24 rounded-full bg-gradient-to-br from-yellow-400
-            to-amber-600 flex items-center justify-center shadow-2xl
-            ${isDark ? 'shadow-yellow-500/30' : 'shadow-yellow-500/20'}`}
-        >
-          <Crown className="w-12 h-12 text-white" strokeWidth={2} />
+        <div className={`w-35 h-35 rounded-full bg-gradient-to-br from-gray-100 to-gray-300 flex items-center justify-center shadow-2xl ${isDark ? 'shadow-blue-500/100' : 'shadow-blue-700/40'}`} > 
+          <img src={logo} alt="LOGO" />
         </div>
 
         {/* Ping Ring */}
-        <div
-          className={`absolute inset-0 w-24 h-24 rounded-full border-2
-            animate-ping
-            ${isDark ? 'border-yellow-400/30' : 'border-yellow-500/25'}`}
-        />
-      </div>
+        <div className={`absolute inset-0 w-24 h-24 rounded-full border-2 animate-ping ${isDark ? 'border-yellow-400/30' : 'border-yellow-500/25'}`} /> </div>
 
       {/* Title */}
-      <h1
-        className={`text-3xl font-black tracking-tight
-          ${isDark ? 'text-white' : 'text-gray-900'}`}
-      >
-        Dhan
-        <span className={isDark ? 'text-yellow-500' : 'text-yellow-600'}>
-          -Manthan
-        </span>
-      </h1>
+      <h1 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`} > ZON
+        <span className={isDark ? 'text-blue-500' : 'text-blue-600'}> - BIZZ </span> </h1>
 
       {/* Tagline */}
       <p
-        className={`text-sm mt-2 tracking-wider
+        className={`text-md mt-2 tracking-wider
           ${isDark ? 'text-gray-500' : 'text-gray-400'}`}
       >
         Paisa Hi Paisa

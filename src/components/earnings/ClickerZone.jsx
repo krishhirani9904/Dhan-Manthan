@@ -1,14 +1,15 @@
+// src/components/earnings/ClickerZone.jsx
 import { useState, useRef, useEffect } from 'react';
 import { IndianRupee, Sparkles, Play, Loader2, Zap } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { theme } from '../../design/tokens';
 import { useEarnings } from '../../hooks/useEarnings';
-import { useNetworkStatus } from '../../hooks/useNetworkStatus'; // ← NEW
+import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 
 function ClickerZone() {
   const { isDark } = useTheme();
   const t = isDark ? theme.dark : theme.light;
-  const { isOnline } = useNetworkStatus(); // ← NEW
+  const { isOnline } = useNetworkStatus();
   const {
     handleTap, currentPerClick, perClick, boostActive,
     adStatus, boostTimer, startAd
@@ -19,6 +20,8 @@ function ClickerZone() {
   const [floats, setFloats] = useState([]);
   const containerRef = useRef(null);
   const timers = useRef([]);
+  const isTouchDevice = useRef(false);
+  const processedTouches = useRef(new Set()); // 🔑 Track processed touch IDs
 
   useEffect(() => {
     return () => timers.current.forEach(id => clearTimeout(id));
@@ -31,19 +34,15 @@ function ClickerZone() {
     return `₹${val.toLocaleString('en-IN')}`;
   };
 
-  const handleClick = (e) => {
-    setScale(0.88);
-    const s = setTimeout(() => setScale(1), 120);
-    timers.current.push(s);
+  const processTap = (x, y) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
 
-    const rect = containerRef.current.getBoundingClientRect();
-    const rawX = (e.touches?.[0]?.clientX || e.clientX || rect.width / 2) - rect.left;
-    const rawY = (e.touches?.[0]?.clientY || e.clientY || rect.height / 2) - rect.top;
-    const x = Math.max(10, Math.min(rawX + (Math.random() * 16 - 8), rect.width - 50));
-    const y = Math.max(10, Math.min(rawY, rect.height - 30));
+    const clampedX = Math.max(10, Math.min(x, rect.width - 50));
+    const clampedY = Math.max(10, Math.min(y, rect.height - 30));
 
     const id = Date.now() + Math.random();
-    setFloats(prev => [...prev, { id, x, y, value: currentPerClick }]);
+    setFloats(prev => [...prev, { id, x: clampedX, y: clampedY, value: currentPerClick }]);
 
     const f = setTimeout(() => {
       setFloats(prev => prev.filter(fl => fl.id !== id));
@@ -53,39 +52,112 @@ function ClickerZone() {
     handleTap();
   };
 
-  // ← NEW: Handle ad button click with network check
+  const animatePress = () => {
+    setScale(0.88);
+    const s = setTimeout(() => setScale(1), 120);
+    timers.current.push(s);
+  };
+
+  // ═══ TOUCH HANDLER - Fixed for multi-touch ═══
+  const handleTouchStart = (e) => {
+    e.preventDefault();
+    isTouchDevice.current = true;
+    
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    animatePress();
+
+    // 🔑 Use changedTouches - only NEW touches, not all active touches
+    const newTouches = e.changedTouches;
+    
+    for (let i = 0; i < newTouches.length; i++) {
+      const touch = newTouches[i];
+      const touchId = touch.identifier;
+      
+      // 🔑 Skip if already processed this touch
+      if (processedTouches.current.has(touchId)) {
+        continue;
+      }
+      
+      // Mark as processed
+      processedTouches.current.add(touchId);
+      
+      const x = touch.clientX - rect.left + (Math.random() * 20 - 10);
+      const y = touch.clientY - rect.top + (Math.random() * 10 - 5);
+      processTap(x, y);
+    }
+  };
+
+  // ═══ TOUCH END - Cleanup processed touches ═══
+  const handleTouchEnd = (e) => {
+    // 🔑 Remove ended touches from tracking
+    const endedTouches = e.changedTouches;
+    for (let i = 0; i < endedTouches.length; i++) {
+      processedTouches.current.delete(endedTouches[i].identifier);
+    }
+  };
+
+  // ═══ CLICK HANDLER (Desktop Only) ═══
+  const handleClick = (e) => {
+    if (isTouchDevice.current) return;
+    
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    animatePress();
+
+    const x = (e.clientX || rect.width / 2) - rect.left + (Math.random() * 16 - 8);
+    const y = (e.clientY || rect.height / 2) - rect.top;
+
+    processTap(x, y);
+  };
+
   const handleAdClick = (e) => {
     e.stopPropagation();
-    
-    // Check if online before starting ad
-    if (!isOnline) {
-      // NetworkStatus component will show the warning
-      return;
-    }
-    
+    e.preventDefault();
+    if (!isOnline) return;
+    startAd();
+  };
+
+  const handleAdTouch = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!isOnline) return;
     startAd();
   };
 
   return (
     <div
       ref={containerRef}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
       onClick={handleClick}
       onContextMenu={(e) => e.preventDefault()}
       className={`flex-1 min-h-0 max-h-[50vh] relative rounded-2xl border
-        overflow-hidden cursor-pointer select-none touch-manipulation
+        overflow-hidden cursor-pointer select-none
         flex items-center justify-center
         ${t.bg.card} ${t.border.default}
         transition-colors duration-300`}
+      style={{ 
+        touchAction: 'manipulation',
+        WebkitTouchCallout: 'none',
+        WebkitUserSelect: 'none',
+        userSelect: 'none'
+      }}
     >
       {/* Boost Pill */}
       <div
         onClick={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
         className="absolute top-2 left-1/2 -translate-x-1/2 z-30"
       >
         {adStatus === 'idle' && (
           <button
-            onClick={handleAdClick} // ← UPDATED
-            disabled={!isOnline} // ← NEW: Disable if offline
+            onClick={handleAdClick}
+            onTouchStart={handleAdTouch}
+            disabled={!isOnline}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full
               text-[10px] font-bold transition-all
               active:scale-90 hover:scale-105 shadow-lg
