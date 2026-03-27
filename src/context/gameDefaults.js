@@ -8,7 +8,7 @@ export const DEFAULTS = {
   activeCardId: 'base',
   cardNumber: '1042',
 
-  // Earnings state (managed by EarningsContext, stored here)
+  // Earnings state
   earningsState: { ...EARNINGS_DEFAULTS },
 
   // Business
@@ -36,6 +36,66 @@ export const DEFAULTS = {
   earnedInsignias: [],
 };
 
+// ═══ Normalize fleet data for taxi/shipping ═══
+const normalizeFleet = (fleet) => {
+  if (!fleet) return null;
+  return {
+    capacity: fleet.capacity || 5,
+    expansionEndTime: fleet.expansionEndTime || null,
+    expansionSlots: fleet.expansionSlots || 0,
+    expansionCount: fleet.expansionCount || 0,
+    vehicles: (fleet.vehicles || []).map(v => ({
+      ...v,
+      kmDriven: v.kmDriven || 0,
+      active: v.active !== false,
+      purchasedAt: v.purchasedAt || Date.now(),
+    })),
+  };
+};
+
+// ═══ Normalize airline data ═══
+const normalizeAirline = (airline) => {
+  if (!airline) return null;
+  return {
+    licenses: airline.licenses || [],
+    hubs: airline.hubs || [],
+    aircraft: (airline.aircraft || []).map(a => ({
+      ...a,
+      active: a.active !== false,
+      flightCount: a.flightCount || 0,
+    })),
+    activeFlights: (airline.activeFlights || []).filter(f =>
+      f.endTime && Date.now() < f.endTime
+    ),
+    staff: airline.staff || {},
+  };
+};
+
+// ═══ Normalize oil & gas data ═══
+const normalizeOilGas = (oilgas) => {
+  if (!oilgas) return null;
+  return {
+    wells: {
+      oil: (oilgas.wells?.oil || []).map(w => ({
+        ...w,
+        active: w.active !== false,
+        daysActive: w.daysActive || 0,
+      })),
+      gas: (oilgas.wells?.gas || []).map(w => ({
+        ...w,
+        active: w.active !== false,
+        daysActive: w.daysActive || 0,
+      })),
+    },
+    stock: {
+      oil: oilgas.stock?.oil || 0,
+      gas: oilgas.stock?.gas || 0,
+    },
+    activeContract: oilgas.activeContract || null,
+    completedContracts: oilgas.completedContracts || 0,
+  };
+};
+
 // ═══ Normalize saved business data ═══
 export const normalizeBusiness = (b) => ({
   ...b,
@@ -57,6 +117,12 @@ export const normalizeBusiness = (b) => ({
   bankSettings: b.bankSettings || null,
   parkingExpansions: b.parkingExpansions || 0,
   outletRequirements: b.outletRequirements || {},
+  // Fleet-based (taxi/shipping)
+  fleet: normalizeFleet(b.fleet),
+  // Airline
+  airline: normalizeAirline(b.airline),
+  // Oil & Gas
+  oilgas: normalizeOilGas(b.oilgas),
 });
 
 // ═══ Normalize saved merger flow data ═══

@@ -1,14 +1,15 @@
+// src/pages/business/merger/MergedBusinessDetail.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  ArrowLeft, TrendingUp, Zap, Calendar, Target,
-  RefreshCw, Check, Star, Loader2, Clock, Rocket
+  ArrowLeft, TrendingUp, Calendar,
+  Rocket, Loader2, Clock, DollarSign
 } from 'lucide-react';
 import { useTheme } from '../../../hooks/useTheme';
 import { theme } from '../../../design/tokens';
 import { useGame } from '../../../hooks/useGame';
 import { MERGER_BUSINESSES } from '../../../data/mergerBusinesses';
-import { MERGER_TRENDS, getIncomeMultiplier } from '../../../data/mergerFlowData';
+import { MERGER_TRENDS } from '../../../data/mergerFlowData';
 import { formatCurrency } from '../../../utils/formatCurrency';
 import AdSpace from '../../../components/common/AdSpace';
 
@@ -26,7 +27,7 @@ function MergedBusinessDetail() {
 
   // Check if reconfiguration is in progress
   useEffect(() => {
-    const flow = (activeMergerFlows || []).find(f => 
+    const flow = (activeMergerFlows || []).find(f =>
       f.parentMergedId === mergedId && f.isReconfigure
     );
     setActiveFlowForThis(flow);
@@ -34,10 +35,10 @@ function MergedBusinessDetail() {
 
   if (!merged) {
     return (
-      <div className={`h-screen flex items-center justify-center ${t.bg.primary}`}>
+      <div className={`h-screen flex flex-col items-center justify-center ${t.bg.primary}`}>
         <div className="text-center">
           <p className={`text-sm ${t.text.secondary}`}>Merged business not found</p>
-          <button onClick={() => navigate('/business')} 
+          <button onClick={() => navigate('/business')}
             className="mt-3 text-yellow-500 underline text-sm">Go back</button>
         </div>
       </div>
@@ -47,9 +48,6 @@ function MergedBusinessDetail() {
   const mergerDef = MERGER_BUSINESSES.find(m => m.id === merged.mergerId);
   const MergerIcon = mergerDef?.icon || TrendingUp;
   const color = mergerDef?.color || 'bg-purple-500';
-  const configPercentage = merged.configScore?.percentage || 50;
-  const multiplier = getIncomeMultiplier(configPercentage);
-  const isProfitable = multiplier >= 1.0;
 
   // Find selected trend info
   const trends = MERGER_TRENDS[merged.mergerId] || [];
@@ -83,19 +81,19 @@ function MergedBusinessDetail() {
   };
 
   const completedDate = merged.completedAt
-    ? new Date(merged.completedAt).toLocaleDateString('en-IN', { 
-        day: 'numeric', month: 'short', year: 'numeric' 
+    ? new Date(merged.completedAt).toLocaleDateString('en-IN', {
+        day: 'numeric', month: 'short', year: 'numeric'
       })
     : 'Unknown';
+
+  const collectionCount = merged.collectionCount || 1;
 
   return (
     <div className={`h-screen flex flex-col ${t.bg.primary} transition-colors duration-300`}>
       {/* Header */}
-      <div className={`flex-shrink-0 flex items-center gap-3 px-4 py-3 
-        ${t.bg.secondary} border-b ${t.border.default}`}>
+      <div className={`flex-shrink-0 flex items-center gap-3 px-4 py-3 ${t.bg.secondary} border-b ${t.border.default}`}>
         <button onClick={() => navigate('/business')}
-          className={`w-9 h-9 rounded-xl flex items-center justify-center 
-            ${isDark ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-100 hover:bg-gray-200'}`}>
+          className={`w-9 h-9 rounded-xl flex items-center justify-center ${isDark ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-100 hover:bg-gray-200'}`}>
           <ArrowLeft className={`w-4 h-4 ${t.text.primary}`} />
         </button>
         <div>
@@ -125,62 +123,41 @@ function MergedBusinessDetail() {
                 <span className="text-[9px] text-white font-bold">NEW IN PROGRESS</span>
               </div>
             )}
+            {/* Collection Count Badge */}
+            {collectionCount > 1 && (
+              <div className="absolute top-2 left-2 px-2 py-1 rounded-full 
+                bg-purple-500/80 backdrop-blur-sm">
+                <span className="text-[9px] text-white font-bold">{collectionCount} Collections</span>
+              </div>
+            )}
           </div>
-          <div className="p-4 -mt-6 relative z-10">
-            <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-bold
-              ${isProfitable ? 'bg-green-500/15 text-green-500' : 'bg-red-500/15 text-red-400'}`}>
-              {isProfitable ? <TrendingUp className="w-3 h-3" /> : <Zap className="w-3 h-3" />}
-              {isProfitable ? 'Profitable' : 'Below Target'}
+          <div className="p-4 -mt-4 relative z-10">
+            <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-bold
+              bg-green-500/15 text-green-500">
+              <TrendingUp className="w-3 h-3" />
+              Active & Earning
             </div>
           </div>
         </div>
 
-        {/* Income Card */}
-        <div className={`rounded-xl p-4 text-center ${t.bg.card} border ${t.border.default}`}>
-          <p className={`text-[10px] ${t.text.tertiary}`}>Current Income Per Hour</p>
-          <p className={`text-4xl font-black ${isProfitable ? 'text-green-500' : 'text-red-400'}`}>
+        {/* Income Card - Main Focus */}
+        <div className={`rounded-xl p-5 text-center ${t.bg.card} border ${t.border.default}`}>
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <DollarSign className="w-5 h-5 text-green-500" />
+            <p className={`text-xs font-medium ${t.text.tertiary}`}>Total Income Per Hour</p>
+          </div>
+          <p className="text-4xl font-black text-green-500">
             {formatCurrency(merged.incomePerHour)}
           </p>
-          <p className={`text-xs mt-1 ${t.text.secondary}`}>
-            Base: {formatCurrency(mergerDef?.incomePerHour || 0)} × {multiplier}x multiplier
+          <p className={`text-[11px] mt-2 ${t.text.secondary}`}>
+            From {collectionCount} collection{collectionCount > 1 ? 's' : ''}
           </p>
-        </div>
-
-        {/* Config Score */}
-        <div className={`rounded-xl p-4 ${t.bg.card} border ${t.border.default}`}>
-          <div className="flex items-center gap-2 mb-3">
-            <Target className={`w-4 h-4 ${t.text.brand}`} />
-            <span className={`text-sm font-bold ${t.text.primary}`}>Configuration Score</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex-1">
-              <div className={`w-full h-3 rounded-full overflow-hidden 
-                ${isDark ? 'bg-gray-800' : 'bg-gray-200'}`}>
-                <div className={`h-full rounded-full transition-all
-                  ${configPercentage >= 80 ? 'bg-green-500' : 
-                    configPercentage >= 60 ? 'bg-yellow-500' : 'bg-red-500'}`}
-                  style={{ width: `${configPercentage}%` }} />
-              </div>
-            </div>
-            <span className={`text-lg font-black ${t.text.primary}`}>{configPercentage}%</span>
-          </div>
-          <div className="flex justify-between mt-2">
-            <span className={`text-[10px] ${t.text.tertiary}`}>
-              Score: {merged.configScore?.totalScore || 0}/{merged.configScore?.maxScore || 400}
-            </span>
-            <span className={`text-[10px] font-bold ${isProfitable ? 'text-green-500' : 'text-red-400'}`}>
-              {multiplier}x income multiplier
-            </span>
-          </div>
         </div>
 
         {/* Trend Info */}
         {selectedTrend && (
           <div className={`rounded-xl p-4 ${t.bg.card} border ${t.border.default}`}>
-            <div className="flex items-center gap-2 mb-2">
-              <Star className={`w-4 h-4 ${t.text.brand}`} />
-              <span className={`text-sm font-bold ${t.text.primary}`}>Selected Trend</span>
-            </div>
+            <p className={`text-[10px] font-medium mb-2 ${t.text.tertiary}`}>CURRENT TREND</p>
             <div className="flex items-center gap-3">
               <span className="text-2xl">{selectedTrend.emoji}</span>
               <div>
@@ -199,7 +176,7 @@ function MergedBusinessDetail() {
           </div>
           <div className="space-y-2">
             <div className="flex justify-between">
-              <span className={`text-xs ${t.text.secondary}`}>Completed</span>
+              <span className={`text-xs ${t.text.secondary}`}>Started</span>
               <span className={`text-xs font-bold ${t.text.primary}`}>{completedDate}</span>
             </div>
             <div className="flex justify-between">
@@ -231,7 +208,7 @@ function MergedBusinessDetail() {
               <div>
                 <p className={`text-sm font-bold ${t.text.primary}`}>New Collection In Progress</p>
                 <p className={`text-[10px] ${t.text.tertiary}`}>
-                  Continue configuring your new collection
+                  Continue to add more income
                 </p>
               </div>
             </div>
@@ -254,15 +231,12 @@ function MergedBusinessDetail() {
               <div>
                 <p className={`text-sm font-bold ${t.text.primary}`}>Launch New Collection</p>
                 <p className={`text-[10px] ${t.text.tertiary}`}>
-                  Create another collection with new strategy
+                  Add another collection to increase income
                 </p>
               </div>
             </div>
             <p className={`text-[11px] mb-3 ${t.text.secondary}`}>
-              {!isProfitable
-                ? '⚠ Your current collection is below target. Launch new to improve income!'
-                : '✨ Your collection is profitable! Launch another to multiply earnings.'
-              }
+              ✨ Each new collection adds to your total income!
             </p>
             <button 
               onClick={handleReconfigure}
@@ -290,9 +264,8 @@ function MergedBusinessDetail() {
         {/* Info Notice */}
         <div className={`rounded-xl p-3 ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
           <p className={`text-[10px] ${t.text.tertiary} leading-relaxed`}>
-            💡 <span className="font-bold">Pro Tip:</span> You can have multiple collections 
-            of the same merger type earning simultaneously. Each collection earns independently 
-            based on its configuration score!
+            💡 <span className="font-bold">Pro Tip:</span> Each new collection configuration 
+            adds its income to your total. Better configuration = more income added!
           </p>
         </div>
       </div>

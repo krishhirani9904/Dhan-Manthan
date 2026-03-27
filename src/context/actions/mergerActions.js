@@ -2,7 +2,12 @@
 
 import { MERGER_BUSINESSES } from '../../data/mergerBusinesses';
 import { getIncomeMultiplier, getConfigTimerDuration } from '../../data/mergerFlowData';
-import { calcTotalIncome, getTotalOutletsForCategory, getUniqueCategoryCount } from '../helpers/incomeCalculator';
+import {
+  calcTotalIncome, getTotalOutletsForCategory,
+  getUniqueCategoryCount, checkAllOutletsComplete,
+  getMergerCountForBusiness,
+} from '../helpers/incomeCalculator';
+import { isFleetBased, isContractBased } from '../../data/businessRequirements';
 import { generateId } from '../../utils/helpers';
 
 export const createMergerActions = (setState) => {
@@ -35,11 +40,83 @@ export const createMergerActions = (setState) => {
           continue;
         }
 
-        const bizOutlets = biz.outlets || 1;
-        const toConsume = Math.min(needed, bizOutlets);
-        needed -= toConsume;
-        consumed.push({ bizId: biz.id, outletsConsumed: toConsume });
+        // Skip businesses with incomplete requirements
+        if (!checkAllOutletsComplete(biz)) {
+          updatedRemaining.push(biz);
+          continue;
+        }
 
+        const bizCount = getMergerCountForBusiness(biz);
+        const toConsume = Math.min(needed, bizCount);
+        needed -= toConsume;
+        consumed.push({ bizId: biz.id, unitsConsumed: toConsume });
+
+        // For fleet-based: consume vehicles
+        if (isFleetBased(biz.categoryId) && biz.categoryId !== 'airlines' && biz.fleet) {
+          const remainingVehicles = [...(biz.fleet.vehicles || [])];
+          let vehiclesToRemove = toConsume;
+          const keptVehicles = [];
+          for (const v of remainingVehicles) {
+            if (vehiclesToRemove > 0 && v.active) {
+              vehiclesToRemove--;
+            } else {
+              keptVehicles.push(v);
+            }
+          }
+          if (keptVehicles.filter(v => v.active).length > 0) {
+            updatedRemaining.push({
+              ...biz,
+              fleet: { ...biz.fleet, vehicles: keptVehicles },
+            });
+          }
+          continue;
+        }
+
+        // For airlines: consume aircraft
+        if (biz.categoryId === 'airlines' && biz.airline) {
+          const remainingAircraft = [...(biz.airline.aircraft || [])];
+          let toRemove = toConsume;
+          const keptAircraft = [];
+          for (const a of remainingAircraft) {
+            if (toRemove > 0 && a.active) {
+              toRemove--;
+            } else {
+              keptAircraft.push(a);
+            }
+          }
+          if (keptAircraft.filter(a => a.active).length > 0) {
+            updatedRemaining.push({
+              ...biz,
+              airline: { ...biz.airline, aircraft: keptAircraft },
+            });
+          }
+          continue;
+        }
+
+        // For oil-gas: consume wells
+        if (isContractBased(biz.categoryId) && biz.oilgas) {
+          const oilWells = [...(biz.oilgas.wells.oil || [])];
+          const gasWells = [...(biz.oilgas.wells.gas || [])];
+          let toRemove = toConsume;
+          const keptOil = [];
+          const keptGas = [];
+          for (const w of oilWells) {
+            if (toRemove > 0 && w.active) { toRemove--; } else { keptOil.push(w); }
+          }
+          for (const w of gasWells) {
+            if (toRemove > 0 && w.active) { toRemove--; } else { keptGas.push(w); }
+          }
+          if (keptOil.length > 0 || keptGas.length > 0) {
+            updatedRemaining.push({
+              ...biz,
+              oilgas: { ...biz.oilgas, wells: { oil: keptOil, gas: keptGas } },
+            });
+          }
+          continue;
+        }
+
+        // Standard outlet-based consumption
+        const bizOutlets = biz.outlets || 1;
         const remainingOutlets = bizOutlets - toConsume;
         if (remainingOutlets > 0) {
           const updatedBiz = {
@@ -62,7 +139,7 @@ export const createMergerActions = (setState) => {
     return { remainingBusinesses: remaining, consumed };
   };
 
-  // ═══ INIT MERGER FLOW — NO blocking for same type ═══
+  // ═══ INIT MERGER FLOW ═══
   const initMergerFlow = (mergerId, name) => {
     let flowId = null;
 
@@ -106,7 +183,7 @@ export const createMergerActions = (setState) => {
     return flowId;
   };
 
-  // ═══ RECONFIGURE MERGER — KEEP existing, create NEW collection flow ═══
+  // ═══ RECONFIGURE MERGER — Creates flow that adds income to parent ═══
   const reconfigureMerger = (mergedId) => {
     let flowId = null;
 
@@ -116,7 +193,6 @@ export const createMergerActions = (setState) => {
 
       flowId = generateId('mflow');
 
-      // DO NOT remove existing merged business — it stays and keeps earning
       return {
         ...p,
         activeMergerFlows: [...(p.activeMergerFlows || []), {
@@ -138,7 +214,6 @@ export const createMergerActions = (setState) => {
           previousIncomePerHour: merged.incomePerHour,
           previousConfigScore: merged.configScore,
         }],
-        // incomePerHour stays the same — existing merger still earning
       };
     });
 
@@ -240,7 +315,7 @@ export const createMergerActions = (setState) => {
     }));
   };
 
-  // ═══ COMPLETE MERGER FLOW — adds NEW collection (never removes parent) ═══
+  // ═══ COMPLETE MERGER FLOW ═══
   const completeMergerFlow = (flowId) => {
     setState(p => {
       const flow = (p.activeMergerFlows || []).find(f => f.id === flowId);
@@ -262,15 +337,30 @@ export const createMergerActions = (setState) => {
         completedAt: Date.now(),
         parentMergedId: flow.parentMergedId || null,
         isCollection: flow.isReconfigure || false,
-        collectionNumber: flow.isReconfigure
-          ? (p.mergedBusinesses || []).filter(
-              m => m.mergerId === flow.mergerId
-            ).length + 1
-          : 1,
       };
 
-      const updatedMerged = [...(p.mergedBusinesses || []), newMerged];
       const updatedFlows = (p.activeMergerFlows || []).filter(f => f.id !== flowId);
+      let updatedMerged = [...(p.mergedBusinesses || [])];
+
+      if (flow.isReconfigure && flow.parentMergedId) {
+        // ADD income to parent merged business instead of creating new entry
+        updatedMerged = updatedMerged.map(m => {
+          if (m.id === flow.parentMergedId) {
+            return {
+              ...m,
+              incomePerHour: m.incomePerHour + finalIncome,
+              configScore: flow.configScore,
+              selectedTrend: flow.selectedTrend,
+              lastCollectionAt: Date.now(),
+              collectionCount: (m.collectionCount || 1) + 1,
+            };
+          }
+          return m;
+        });
+      } else {
+        // New merger — add to list
+        updatedMerged = [...updatedMerged, newMerged];
+      }
 
       return {
         ...p,
@@ -281,6 +371,11 @@ export const createMergerActions = (setState) => {
         ),
       };
     });
+  };
+
+  // ═══ COMPLETE RECONFIGURE FLOW (alias) ═══
+  const completeReconfigureFlow = (flowId) => {
+    completeMergerFlow(flowId);
   };
 
   const startMerger = (merger) => {
@@ -316,6 +411,6 @@ export const createMergerActions = (setState) => {
     initMergerFlow, selectMergerTrend, saveMergerConfig,
     boostConfigTimer, investInMergerPhase, boostMergerPhase,
     skipMergerPhase, startMergerAdBoost, completeMergerFlow,
-    startMerger, reconfigureMerger,
+    completeReconfigureFlow, startMerger, reconfigureMerger,
   };
 };

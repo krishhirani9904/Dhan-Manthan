@@ -319,6 +319,28 @@ export const BANK_SETTINGS_DEFAULTS = {
   taxFrequency: 'quarterly',
 };
 
+// ═══════════════════════════════════════════════════════
+// FLEET-BASED CATEGORIES (No Outlet System)
+// ═══════════════════════════════════════════════════════
+
+export const FLEET_BASED_CATEGORIES = ['taxi', 'shipping', 'airlines'];
+
+export const isFleetBased = (categoryId) => {
+  return FLEET_BASED_CATEGORIES.includes(categoryId);
+};
+
+// Oil & Gas uses contract system
+export const CONTRACT_BASED_CATEGORIES = ['oil-gas'];
+
+export const isContractBased = (categoryId) => {
+  return CONTRACT_BASED_CATEGORIES.includes(categoryId);
+};
+
+// Categories that use standard outlet system
+export const isOutletBased = (categoryId) => {
+  return !isFleetBased(categoryId) && !isContractBased(categoryId);
+};
+
 export const getBusinessRequirements = (categoryId) => {
   return {
     staff: STAFF_TYPES[categoryId] || [],
@@ -328,3 +350,4 @@ export const getBusinessRequirements = (categoryId) => {
     vehicles: VEHICLE_CATEGORIES[categoryId] || null,
   };
 };
+

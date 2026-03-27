@@ -1,5 +1,5 @@
 // src/pages/business/merger/MergerConfigurator.jsx
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Check, X, MonitorPlay, Lock, Zap
@@ -7,6 +7,7 @@ import {
 import { useTheme } from '../../../hooks/useTheme';
 import { theme } from '../../../design/tokens';
 import { useGame } from '../../../hooks/useGame';
+import { useNetworkStatus } from '../../../hooks/useNetworkStatus';
 import { getConfiguratorOptions, calculateConfigScore } from '../../../data/mergerFlowData';
 
 function MergerConfigurator() {
@@ -14,6 +15,7 @@ function MergerConfigurator() {
   const navigate = useNavigate();
   const { isDark } = useTheme();
   const t = isDark ? theme.dark : theme.light;
+  const isOnline = useNetworkStatus();
   const {
     activeMergerFlows, saveMergerConfig, boostConfigTimer
   } = useGame();
@@ -39,30 +41,70 @@ function MergerConfigurator() {
     }
   }, [flow?.configuration]);
 
-  // Generate randomized "correct" answers per session
-  const correctAnswers = useMemo(() => {
+  // ═══ RANDOMIZED CORRECT ANSWERS - Different each session ═══
+  const sessionSeed = useMemo(() => {
+    if (!flow) return 0;
+    // Combine flow ID + timestamp for truly random session
+    const base = flow.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    const timeFactor = Math.floor(flow.startedAt / 60000) % 1000;
+    return base + timeFactor;
+  }, [flow?.id, flow?.startedAt]);
+
+  // Generate randomized "best" answers - DIFFERENT each time
+  const bestAnswers = useMemo(() => {
     if (!flow) return {};
     const options = getConfiguratorOptions(flow.mergerId);
     const categories = ['style', 'quality', 'audience', 'price'];
     const answers = {};
 
-    // Use flow ID as seed for consistency within session
-    const seed = flow.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-
     categories.forEach((cat, catIdx) => {
       const opts = options[cat]?.options || [];
       if (opts.length === 0) return;
-      // Randomize which option is "best" this session
-      const randomIdx = (seed + catIdx * 7 + Date.now() % 3) % opts.length;
+      
+      // Use session seed + category index for randomization
+      // This ensures DIFFERENT best options each session
+      const randomIdx = (sessionSeed + catIdx * 17 + catIdx) % opts.length;
       answers[cat] = opts[randomIdx]?.id;
     });
 
     return answers;
-  }, [flow?.id, flow?.mergerId]);
+  }, [flow?.id, flow?.mergerId, sessionSeed]);
+
+  // Calculate score based on how many match the "best" answers
+  const calculateDynamicScore = useCallback((currentConfig) => {
+    const options = getConfiguratorOptions(flow?.mergerId);
+    const categories = ['style', 'quality', 'audience', 'price'];
+    let totalScore = 0;
+    let maxScore = 0;
+
+    categories.forEach(cat => {
+      const catOptions = options[cat]?.options || [];
+      const selected = catOptions.find(o => o.id === currentConfig[cat]);
+      const bestOption = catOptions.find(o => o.id === bestAnswers[cat]);
+      
+      maxScore += 100;
+      
+      if (selected && bestOption) {
+        if (selected.id === bestOption.id) {
+          // Perfect match - full score
+          totalScore += 100;
+        } else {
+          // Partial score based on option's inherent score
+          totalScore += Math.floor(selected.score * 0.6);
+        }
+      }
+    });
+
+    return { 
+      totalScore, 
+      maxScore, 
+      percentage: Math.round((totalScore / maxScore) * 100) 
+    };
+  }, [flow?.mergerId, bestAnswers]);
 
   if (!flow) {
     return (
-      <div className={`h-screen flex items-center justify-center ${t.bg.primary}`}>
+      <div className={`h-screen flex flex-col items-center justify-center ${t.bg.primary}`}>
         <p className={t.text.secondary}>Flow not found</p>
         <button onClick={() => navigate('/business/mergers')}
           className="mt-3 text-yellow-500 underline text-sm">Go back</button>
@@ -86,17 +128,16 @@ function MergerConfigurator() {
     setConfig(prev => ({ ...prev, [category]: optionId }));
   };
 
-  // Per-category ad auto-select
+  // ═══ AD AUTO-SELECT - Always picks the BEST option ═══
   const handleAdAutoSelect = (category) => {
-    if (isConfigSaved || adWatchingCategory) return;
+    if (!isOnline || isConfigSaved || adWatchingCategory) return;
     setAdWatchingCategory(category);
+    
     setTimeout(() => {
-      const opts = options[category]?.options || [];
-      // Ad always picks the BEST option (highest score)
-      const bestOpt = opts.reduce((max, opt) =>
-        opt.score > (max?.score || 0) ? opt : max, null);
-      if (bestOpt) {
-        setConfig(prev => ({ ...prev, [category]: bestOpt.id }));
+      // Ad ALWAYS picks the best answer for this session
+      const bestOptionId = bestAnswers[category];
+      if (bestOptionId) {
+        setConfig(prev => ({ ...prev, [category]: bestOptionId }));
       }
       setAdWatchingCategory(null);
     }, 2000);
@@ -104,12 +145,13 @@ function MergerConfigurator() {
 
   const handleNext = () => {
     if (!allSelected || isConfigSaved) return;
-    const score = calculateConfigScore(config, flow.mergerId);
+    // Use dynamic scoring based on best answers
+    const score = calculateDynamicScore(config);
     saveMergerConfig(flowId, config, score);
   };
 
   const handleBoostTimer = () => {
-    if (!isConfigSaved || timerComplete || adBoosting) return;
+    if (!isOnline || !isConfigSaved || timerComplete || adBoosting) return;
     setAdBoosting(true);
     setTimeout(() => {
       setAdBoosting(false);
@@ -146,6 +188,7 @@ function MergerConfigurator() {
             if (!catDef) return null;
             const CatIcon = catDef.icon;
             const selectedOpt = (catDef.options || []).find(o => o.id === config[catKey]);
+            const isBestChoice = config[catKey] === bestAnswers[catKey];
 
             return (
               <div key={catKey}
@@ -175,11 +218,11 @@ function MergerConfigurator() {
                   </div>
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center
                     ${timerComplete
-                      ? 'bg-green-500/15'
+                      ? isBestChoice ? 'bg-green-500/15' : 'bg-yellow-500/15'
                       : isDark ? 'bg-gray-800' : 'bg-gray-200'
                     }`}>
                     {timerComplete
-                      ? <Check className="w-5 h-5 text-green-500" />
+                      ? <Check className={`w-5 h-5 ${isBestChoice ? 'text-green-500' : 'text-yellow-500'}`} />
                       : <Lock className={`w-5 h-5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
                     }
                   </div>
@@ -193,8 +236,7 @@ function MergerConfigurator() {
               <button onClick={handleContinue}
                 className="w-full py-4 rounded-xl text-sm font-bold
                   bg-gradient-to-r from-green-500 to-emerald-600 text-white
-                  shadow-lg shadow-green-500/20 active:scale-95 transition-all
-                  animate-pulse-glow">
+                  shadow-lg shadow-green-500/20 active:scale-95 transition-all">
                 ✅ Collection Ready — Continue to Development
               </button>
             </div>
@@ -225,16 +267,16 @@ function MergerConfigurator() {
 
               <button
                 onClick={handleBoostTimer}
-                disabled={adBoosting}
+                disabled={adBoosting || !isOnline}
                 className={`w-full flex items-center justify-center gap-2
                   py-3 rounded-xl text-sm font-bold transition-all
-                  ${adBoosting ? 'opacity-50' : ''}
+                  ${(adBoosting || !isOnline) ? 'opacity-50' : ''}
                   ${isDark
                     ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20'
                     : 'bg-yellow-50 text-yellow-600 border border-yellow-200'
                   } active:scale-95`}>
                 <Zap className="w-4 h-4" />
-                {adBoosting ? 'Watching Ad...' : 'Watch Ad for 4× Speed'}
+                {!isOnline ? 'Offline' : adBoosting ? 'Watching Ad...' : 'Watch Ad for Reduce Time'}
               </button>
             </div>
           )}
@@ -258,8 +300,8 @@ function MergerConfigurator() {
         <div className="text-center px-4">
           <h2 className={`text-lg font-bold mb-1.5 ${t.text.primary}`}>Collection Configurator</h2>
           <p className={`text-[11px] leading-relaxed ${t.text.secondary}`}>
-            Select configuration options for each category. Watch ads for guaranteed optimal selection,
-            or choose manually (risk of lower profit if mismatched).
+            Select configuration options. Watch ads for guaranteed optimal selection,
+            or choose manually (results vary based on market conditions).
           </p>
         </div>
 
@@ -276,21 +318,23 @@ function MergerConfigurator() {
               {/* Per-Category Ad Button */}
               <button
                 onClick={() => handleAdAutoSelect(catKey)}
-                disabled={isWatchingThisAd || adWatchingCategory !== null || selected !== null}
+                disabled={isWatchingThisAd || adWatchingCategory !== null || selected !== null || !isOnline}
                 className={`w-full rounded-xl p-3 mb-2 text-left transition-all active:scale-[0.98]
                   border-2 border-dashed
                   ${isWatchingThisAd ? 'opacity-50 animate-pulse' : ''}
-                  ${selected !== null ? 'opacity-30' : ''}
+                  ${(selected !== null || !isOnline) ? 'opacity-30' : ''}
                   ${isDark ? 'border-yellow-500/30 bg-yellow-500/5' : 'border-yellow-300 bg-yellow-50'}`}>
                 <div className="flex items-center gap-3">
                   <MonitorPlay className="w-4 h-4 text-yellow-500" />
                   <div>
                     <p className="text-xs font-bold text-yellow-500">
-                      {isWatchingThisAd
-                        ? 'Watching Ad...'
-                        : selected !== null
-                          ? '✓ Selected'
-                          : `Auto-Select Best ${catDef.label}`
+                      {!isOnline
+                        ? 'Offline - Manual Select Only'
+                        : isWatchingThisAd
+                          ? 'Watching Ad...'
+                          : selected !== null
+                            ? '✓ Selected'
+                            : `Auto-Select Best ${catDef.label}`
                       }
                     </p>
                     <p className={`text-[9px] ${t.text.tertiary}`}>

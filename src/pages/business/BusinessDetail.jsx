@@ -14,7 +14,7 @@ import { getCategoryById } from '../../data/businessCategories';
 import {
   getBusinessRequirements, VEHICLE_CATEGORIES,
   BANK_SETTINGS_DEFAULTS, STAFF_TYPES, EQUIPMENT_TYPES,
-  LICENSE_TYPES, INVENTORY_TYPES
+  LICENSE_TYPES, INVENTORY_TYPES, isFleetBased, isContractBased
 } from '../../data/businessRequirements';
 import { calcBusinessIncome, countActiveOutlets, checkRequiredComplete } from '../../context/helpers/incomeCalculator';
 import { formatCurrency, formatNumber } from '../../utils/formatCurrency';
@@ -22,11 +22,13 @@ import { formatTime, formatTimeShort } from '../../utils/formatTime';
 import { getLevelLabel } from '../../utils/helpers';
 import { MAX_BUSINESS_LEVEL } from '../../config/constants';
 import AdSpace from '../../components/common/AdSpace';
+import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 
 function BusinessDetail() {
   const { bizId } = useParams();
   const navigate = useNavigate();
   const { isDark } = useTheme();
+  const { isOnline } = useNetworkStatus();
   const t = isDark ? theme.dark : theme.light;
   const {
     ownedBusinesses, balance, startExpansion, skipExpansion,
@@ -35,6 +37,30 @@ function BusinessDetail() {
   } = useGame();
 
   const biz = ownedBusinesses.find(b => b.id === bizId);
+
+  // ═══ REDIRECT FOR SPECIAL BUSINESS TYPES ═══
+  useEffect(() => {
+    if (!biz) return;
+
+    // Fleet-based businesses (taxi, shipping) → FleetManagement
+    if (isFleetBased(biz.categoryId) && biz.categoryId !== 'airlines') {
+      navigate(`/business/fleet/${bizId}`, { replace: true });
+      return;
+    }
+
+    // Airlines → AirlineManagement (Phase 2)
+    if (biz.categoryId === 'airlines') {
+      navigate(`/business/airline/${bizId}`, { replace: true });
+      return;
+    }
+
+    // Oil & Gas → OilGasManagement (Phase 3)
+    if (isContractBased(biz.categoryId)) {
+      navigate(`/business/oilgas/${bizId}`, { replace: true });
+      return;
+    }
+  }, [biz, bizId, navigate]);
+
   const [adWatching, setAdWatching] = useState(false);
   const [skipAdWatching, setSkipAdWatching] = useState(false);
   const [expansionRemaining, setExpansionRemaining] = useState(0);
@@ -62,6 +88,18 @@ function BusinessDetail() {
         <div className="text-center">
           <p className={`text-sm ${t.text.secondary}`}>Business not found</p>
           <button onClick={() => navigate('/business')} className="mt-3 text-yellow-500 underline text-sm">Go back</button>
+        </div>
+      </div>
+    );
+  }
+
+  // If redirecting, show loading
+  if (isFleetBased(biz.categoryId) || isContractBased(biz.categoryId)) {
+    return (
+      <div className={`h-screen flex items-center justify-center ${t.bg.primary}`}>
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className={`text-sm ${t.text.secondary}`}>Loading...</p>
         </div>
       </div>
     );
@@ -131,18 +169,18 @@ function BusinessDetail() {
   };
 
   const handleRaiseIncome = () => {
-    if (hasBizAdBoost || adWatching) return;
-    setAdWatching(true);
-    setTimeout(() => { setAdWatching(false); startBizAdBoost(bizId, 15, 4); }, 2000);
-  };
+  if (!isOnline || hasBizAdBoost || adWatching) return;
+  setAdWatching(true);
+  setTimeout(() => { setAdWatching(false); startBizAdBoost(bizId, 15, 4); }, 2000);
+};
 
   const handleStartExpansion = () => { if (canExpand) startExpansion(bizId); };
 
   const handleSkipExpansion = () => {
-    if (!isExpanding || skipAdWatching) return;
-    setSkipAdWatching(true);
-    setTimeout(() => { setSkipAdWatching(false); skipExpansion(bizId); }, 2000);
-  };
+  if (!isOnline || !isExpanding || skipAdWatching) return;
+  setSkipAdWatching(true);
+  setTimeout(() => { setSkipAdWatching(false); skipExpansion(bizId); }, 2000);
+};
 
   const SectionCard = ({ icon: SIcon, iconColor, iconBg, title, subtitle, onClick, children, badge }) => (
     <button onClick={onClick}
@@ -195,7 +233,7 @@ function BusinessDetail() {
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-3 py-3 space-y-2.5 -mt-3 relative z-10">
 
         {/* Income Card */}
-        <button onClick={handleRaiseIncome} disabled={hasBizAdBoost || adWatching}
+        <button onClick={handleRaiseIncome} disabled={!isOnline || hasBizAdBoost || adWatching}
           className={`w-full rounded-xl p-3.5 text-left ${t.bg.card} border ${t.border.default}
             transition-all active:scale-[0.98] ${adWatching ? 'animate-pulse' : ''}`}>
           <div className="flex items-center justify-between mb-1">
@@ -217,8 +255,8 @@ function BusinessDetail() {
             <div className={`mt-2 flex items-center gap-2 py-2 px-3 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`}>
               <MonitorPlay className={`w-4 h-4 ${shades.text}`} />
               <span className={`text-xs font-medium ${t.text.secondary}`}>
-                {adWatching ? 'Watching ad...' : 'Raise Income (+15% for 4h)'}
-              </span>
+  {!isOnline ? '📡 Offline — No Ads' : adWatching ? 'Watching ad...' : 'Raise Income (+15% for 4h)'}
+</span>
             </div>
           )}
         </button>
@@ -471,12 +509,12 @@ function BusinessDetail() {
                 <span className={`text-xs font-bold ${t.text.primary}`}>New Outlet Opening...</span>
               </div>
               <p className={`text-lg font-black text-center my-2 ${shades.text}`}>{formatTime(expansionRemaining)}</p>
-              <button onClick={handleSkipExpansion} disabled={skipAdWatching}
-                className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold
-                  ${skipAdWatching ? 'opacity-50' : ''} bg-gradient-to-r from-purple-500 to-violet-600 text-white active:scale-95`}>
-                <MonitorPlay className="w-4 h-4" />
-                {skipAdWatching ? 'Watching ad...' : 'Skip (Open Instantly)'}
-              </button>
+              <button onClick={handleSkipExpansion} disabled={!isOnline || skipAdWatching}
+  className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold
+    ${(!isOnline || skipAdWatching) ? 'opacity-50' : ''} bg-gradient-to-r from-purple-500 to-violet-600 text-white active:scale-95`}>
+  <MonitorPlay className="w-4 h-4" />
+  {!isOnline ? '📡 Offline' : skipAdWatching ? 'Watching ad...' : 'Skip (Open Instantly)'}
+</button>
             </div>
           ) : level >= MAX_BUSINESS_LEVEL ? (
             <div className="text-center py-4">

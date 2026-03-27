@@ -3,7 +3,8 @@ import { useState, useCallback, useMemo, useEffect, useRef, createContext } from
 import { storage } from '../services/storage';
 import { CARD_TIERS, getCardTier, getCardBonus } from '../data/cardTiers';
 import { getCategoryById } from '../data/businessCategories';
-import { VEHICLE_CATEGORIES } from '../data/businessRequirements';
+import { isFleetBased, isContractBased, isOutletBased, VEHICLE_CATEGORIES } from '../data/businessRequirements';
+import { getKmConfig } from '../data/fleetVehicles';
 import { MERGER_BUSINESSES } from '../data/mergerBusinesses';
 import { getIncomeMultiplier } from '../data/mergerFlowData';
 import {
@@ -21,6 +22,12 @@ import { createManagementActions } from './actions/managementActions';
 import { createMergerActions } from './actions/mergerActions';
 import { createInvestingActions } from './actions/investingActions';
 import { createItemActions } from './actions/itemActions';
+
+// 🆕 ADD THIS IMPORT
+import { 
+  generateContractForCustomer, 
+  getNextAvailableCustomer 
+} from '../data/oilGasData';
 
 export const GameContext = createContext();
 
@@ -99,7 +106,8 @@ export function GameProvider({ children }) {
           let bu = { ...biz };
           let changed = false;
 
-          if (biz.expansionEndTime && Date.now() >= biz.expansionEndTime) {
+          // ─── OUTLET EXPANSION COMPLETION ───
+          if (isOutletBased(biz.categoryId) && biz.expansionEndTime && Date.now() >= biz.expansionEndTime) {
             const cat = getCategoryById(biz.categoryId);
             const growth = cat?.profitGrowthPercent || 15;
             const newOutlets = (biz.outlets || 1) + 1;
@@ -114,19 +122,140 @@ export function GameProvider({ children }) {
             changed = true;
           }
 
+          // ─── FLEET EXPANSION COMPLETION ───
+          if (bu.fleet?.expansionEndTime && Date.now() >= bu.fleet.expansionEndTime) {
+            bu.fleet = {
+              ...bu.fleet,
+              capacity: (bu.fleet.capacity || 5) + (bu.fleet.expansionSlots || 5),
+              expansionEndTime: null,
+              expansionSlots: 0,
+              expansionCount: (bu.fleet.expansionCount || 0) + 1,
+            };
+            changed = true;
+          }
+
+          // ─── FLEET KM ACCUMULATION ───
+          if (bu.fleet?.vehicles?.length > 0) {
+            const kmConfig = getKmConfig(biz.categoryId);
+            const minKmPerSec = kmConfig.minKmPerHour / 3600;
+            const maxKmPerSec = kmConfig.maxKmPerHour / 3600;
+
+            let fleetChanged = false;
+            const updatedVehicles = bu.fleet.vehicles.map(v => {
+              if (!v.active) return v;
+              const randomKm = minKmPerSec + Math.random() * (maxKmPerSec - minKmPerSec);
+              const newKm = (v.kmDriven || 0) + randomKm;
+              if (newKm >= v.resourceKm) {
+                fleetChanged = true;
+                return { ...v, kmDriven: v.resourceKm, active: false, retiredAt: Date.now() };
+              }
+              return { ...v, kmDriven: newKm };
+            });
+
+            if (fleetChanged) changed = true;
+            bu.fleet = { ...bu.fleet, vehicles: updatedVehicles };
+          }
+
+          // ─── AIRLINE FLIGHT COMPLETION ───
+          if (bu.airline?.activeFlights?.length > 0) {
+            const completedFlights = bu.airline.activeFlights.filter(
+              f => f.endTime && Date.now() >= f.endTime
+            );
+            if (completedFlights.length > 0) {
+              completedFlights.forEach(f => {
+                const durationHours = (f.endTime - f.startTime) / 3600000;
+                const reward = Math.floor((f.incomePerHour || 0) * durationHours);
+                updated.balance = (updated.balance || prev.balance) + reward;
+              });
+
+              bu.airline = {
+                ...bu.airline,
+                activeFlights: bu.airline.activeFlights.filter(
+                  f => !f.endTime || Date.now() < f.endTime
+                ),
+              };
+              changed = true;
+            }
+          }
+
+          // ─── OIL & GAS PRODUCTION ───
+          if (bu.oilgas) {
+            const stock = { ...(bu.oilgas.stock || { oil: 0, gas: 0 }) };
+            let prodChanged = false;
+
+            // Accumulate stock from wells (per second)
+            ['oil', 'gas'].forEach(fuelType => {
+              (bu.oilgas.wells?.[fuelType] || []).forEach(well => {
+                if (well.active) {
+                  const perSecond = well.productionPerDay / 86400;
+                  stock[fuelType] = (stock[fuelType] || 0) + perSecond;
+                  prodChanged = true;
+                }
+              });
+            });
+
+            if (prodChanged) {
+              bu.oilgas = { ...bu.oilgas, stock };
+              changed = true;
+            }
+
+            // 🆕 AUTO-GENERATE FIRST PENDING CONTRACT (if none exists)
+            if (!bu.oilgas.pendingContract && !bu.oilgas.activeContract) {
+              const completedContracts = bu.oilgas.completedContracts || 0;
+              const nextCustomer = getNextAvailableCustomer(completedContracts, null);
+              const nextContractData = nextCustomer ? generateContractForCustomer(nextCustomer) : null;
+              
+              if (nextContractData) {
+                bu.oilgas = {
+                  ...bu.oilgas,
+                  pendingContract: {
+                    ...nextContractData,
+                    customerId: nextCustomer.id,
+                    customerName: nextCustomer.name,
+                    customerLogo: nextCustomer.logo,
+                    customerTier: nextCustomer.tier,
+                  },
+                };
+                changed = true;
+              }
+            }
+
+            // Well lifespan tracking
+            let wellsChanged = false;
+            const updatedWells = {};
+            ['oil', 'gas'].forEach(fuelType => {
+              updatedWells[fuelType] = (bu.oilgas.wells?.[fuelType] || []).map(well => {
+                if (!well.active) return well;
+                const newDays = (well.daysActive || 0) + (1 / 86400);
+                if (newDays >= well.maxLifespan) {
+                  wellsChanged = true;
+                  return { ...well, daysActive: well.maxLifespan, active: false };
+                }
+                return { ...well, daysActive: newDays };
+              });
+            });
+            if (wellsChanged) {
+              bu.oilgas = { ...bu.oilgas, wells: updatedWells };
+              changed = true;
+            }
+          }
+
+          // ─── BIZ AD BOOST EXPIRY ───
           if (biz.bizAdBoostEndTime && Date.now() >= biz.bizAdBoostEndTime) {
             bu.bizAdBoostEndTime = null;
             bu.bizAdBoostPercent = 0;
             changed = true;
           }
 
-          if (biz.vehicles?.length > 0) {
+          // ─── LEGACY VEHICLE WEAR (outlet-based with vehicles) ───
+          if (biz.vehicles?.length > 0 && isOutletBased(biz.categoryId)) {
             const vc = VEHICLE_CATEGORIES[biz.categoryId];
             const processed = processVehicleWear(biz.vehicles, vc?.kmPerHour);
             if (processed.some((v, i) => v.active !== biz.vehicles[i]?.active)) changed = true;
             bu.vehicles = processed;
           }
 
+          // ─── PROJECT COMPLETION ───
           if (biz.projects?.length > 0) {
             const updProjects = biz.projects.map(p =>
               p.status === 'active' && p.endTime && Date.now() >= p.endTime
@@ -148,7 +277,7 @@ export function GameProvider({ children }) {
 
           bu.totalEarnings = (biz.totalEarnings || 0) + calcBusinessIncome(biz) / 3600;
           if (changed) businessesChanged = true;
-          return changed ? bu : { ...biz, totalEarnings: bu.totalEarnings, vehicles: bu.vehicles };
+          return changed ? bu : { ...biz, totalEarnings: bu.totalEarnings, fleet: bu.fleet, oilgas: bu.oilgas };
         });
 
         updated.ownedBusinesses = updatedBusinesses;
@@ -158,6 +287,7 @@ export function GameProvider({ children }) {
           );
         }
 
+        // ─── MERGER FLOW PROCESSING ───
         if (prev.activeMergerFlows?.length > 0) {
           let flowsChanged = false;
           const updatedFlows = (updated.activeMergerFlows || prev.activeMergerFlows).map(flow => {
@@ -192,6 +322,7 @@ export function GameProvider({ children }) {
           if (flowsChanged) updated.activeMergerFlows = updatedFlows;
         }
 
+        // ─── INCOME ACCUMULATION ───
         const cardBonus = getCardBonus(prev.activeCardId);
         const bizBoostMult = prev.bizBoostActive ? (1 + prev.bizBoostPercent / 100) : 1;
 
@@ -227,6 +358,7 @@ export function GameProvider({ children }) {
     return () => { if (mainIntervalRef.current) clearInterval(mainIntervalRef.current); };
   }, []);
 
+  // Biz boost timer
   useEffect(() => {
     if (bizTimerRef.current) { clearInterval(bizTimerRef.current); bizTimerRef.current = null; }
     if (bizBoostRemaining > 0) {
@@ -245,6 +377,7 @@ export function GameProvider({ children }) {
     return () => { if (bizTimerRef.current) { clearInterval(bizTimerRef.current); bizTimerRef.current = null; } };
   }, [bizBoostRemaining > 0]);
 
+  // Auto-save
   useEffect(() => {
     if (saveRef.current) clearTimeout(saveRef.current);
     saveRef.current = setTimeout(() => storage.saveGame(state), 1000);
@@ -307,6 +440,107 @@ export function GameProvider({ children }) {
     storage.clearGame();
   }, []);
 
+  // ═══════════════════════════════════════════════════════
+  // 🆕 OIL & GAS CONTRACT FUNCTIONS
+  // ═══════════════════════════════════════════════════════
+
+  const signContract = useCallback((bizId, contract) => {
+    setState(prev => ({
+      ...prev,
+      ownedBusinesses: prev.ownedBusinesses.map(b => {
+        if (b.id !== bizId || !b.oilgas) return b;
+        
+        const stock = b.oilgas.stock || { oil: 0, gas: 0 };
+        
+        // Stock માંથી requirements minus કરો
+        const newStock = { ...stock };
+        Object.entries(contract.requirements).forEach(([fuel, amount]) => {
+          newStock[fuel] = Math.max(0, (newStock[fuel] || 0) - amount);
+        });
+        
+        return {
+          ...b,
+          oilgas: {
+            ...b.oilgas,
+            stock: newStock,
+            activeContract: {
+              ...contract,
+              startTime: Date.now(),
+              endTime: Date.now() + (contract.duration * 1000),
+            },
+            pendingContract: null,
+          }
+        };
+      })
+    }));
+  }, []);
+
+  const collectContractReward = useCallback((bizId) => {
+    setState(prev => {
+      const biz = prev.ownedBusinesses.find(b => b.id === bizId);
+      if (!biz?.oilgas?.activeContract) return prev;
+      
+      const reward = biz.oilgas.activeContract.reward || 0;
+      const completedContracts = (biz.oilgas.completedContracts || 0) + 1;
+      
+      // Next contract generate કરો
+      const nextCustomer = getNextAvailableCustomer(completedContracts, null);
+      const nextContractData = nextCustomer ? generateContractForCustomer(nextCustomer) : null;
+      
+      return {
+        ...prev,
+        balance: prev.balance + reward,
+        ownedBusinesses: prev.ownedBusinesses.map(b => {
+          if (b.id !== bizId) return b;
+          return {
+            ...b,
+            oilgas: {
+              ...b.oilgas,
+              activeContract: null,
+              completedContracts,
+              pendingContract: nextContractData ? {
+                ...nextContractData,
+                customerId: nextCustomer.id,
+                customerName: nextCustomer.name,
+                customerLogo: nextCustomer.logo,
+                customerTier: nextCustomer.tier,
+              } : null,
+            }
+          };
+        })
+      };
+    });
+  }, []);
+
+  const regenerateContract = useCallback((bizId) => {
+    setState(prev => ({
+      ...prev,
+      ownedBusinesses: prev.ownedBusinesses.map(b => {
+        if (b.id !== bizId || !b.oilgas || b.oilgas.activeContract) return b;
+        
+        const completedContracts = b.oilgas.completedContracts || 0;
+        const nextCustomer = getNextAvailableCustomer(completedContracts, null);
+        const nextContractData = nextCustomer ? generateContractForCustomer(nextCustomer) : null;
+        
+        return {
+          ...b,
+          oilgas: {
+            ...b.oilgas,
+            pendingContract: nextContractData ? {
+              ...nextContractData,
+              customerId: nextCustomer.id,
+              customerName: nextCustomer.name,
+              customerLogo: nextCustomer.logo,
+              customerTier: nextCustomer.tier,
+            } : null,
+          }
+        };
+      })
+    }));
+  }, []);
+
+  // ═══════════════════════════════════════════════════════
+
   const value = useMemo(() => ({
     ...state,
     currentTier,
@@ -330,6 +564,24 @@ export function GameProvider({ children }) {
     buyOutletEquipment: businessActions.buyOutletEquipment,
     buyOutletLicense: businessActions.buyOutletLicense,
     buyOutletInventory: businessActions.buyOutletInventory,
+
+    // Fleet
+    startFleetExpansion: businessActions.startFleetExpansion,
+    skipFleetExpansion: businessActions.skipFleetExpansion,
+    buyFleetVehicle: businessActions.buyFleetVehicle,
+
+    // Airline
+    buyAirlineLicense: businessActions.buyAirlineLicense,
+    buyAirlineHub: businessActions.buyAirlineHub,
+    buyAirlineAircraft: businessActions.buyAirlineAircraft,
+    startAirlineFlight: businessActions.startAirlineFlight,
+    hireAirlineStaff: businessActions.hireAirlineStaff,
+
+    // 🆕 Oil & Gas - UPDATED THESE 3 LINES
+    buyWell: businessActions.buyWell,
+    signContract,
+    collectContractReward,
+    regenerateContract,
 
     // Management
     hireStaff: managementActions.hireStaff,
@@ -388,6 +640,8 @@ export function GameProvider({ children }) {
     setActiveCard, startBizBoost, resetGame, getExpansionCost, getExpansionTime,
     businessActions, managementActions, mergerActions,
     investingActions, itemActions,
+    // 🆕 ADD THESE 3
+    signContract, collectContractReward, regenerateContract,
   ]);
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;

@@ -2,7 +2,7 @@
 import { useNavigate } from 'react-router-dom';
 import {
   Building2, ChevronRight, GitMerge, TrendingUp,
-  Clock, Check, AlertTriangle
+  Clock, Check, AlertTriangle, Car, Truck, Plane, Fuel
 } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 import { useGame } from '../../hooks/useGame';
@@ -11,8 +11,14 @@ import { formatCurrency } from '../../utils/formatCurrency';
 import { getCategoryById } from '../../data/businessCategories';
 import { MERGER_BUSINESSES } from '../../data/mergerBusinesses';
 import { getIncomeMultiplier } from '../../data/mergerFlowData';
-import { calcBusinessIncome, countActiveOutlets, checkRequiredComplete } from '../../context/helpers/incomeCalculator';
-import { STAFF_TYPES, EQUIPMENT_TYPES, LICENSE_TYPES, INVENTORY_TYPES } from '../../data/businessRequirements';
+import {
+  calcBusinessIncome, countActiveOutlets, checkRequiredComplete,
+  countActiveFleetVehicles
+} from '../../context/helpers/incomeCalculator';
+import {
+  STAFF_TYPES, EQUIPMENT_TYPES, LICENSE_TYPES, INVENTORY_TYPES,
+  isFleetBased, isContractBased
+} from '../../data/businessRequirements';
 
 const getMissingCount = (biz) => {
   const catId = biz.categoryId;
@@ -41,6 +47,60 @@ function OwnedBusinessList() {
     return cat ? { Icon: cat.icon, color: cat.color } : { Icon: Building2, color: 'bg-gray-500' };
   };
 
+  const getBusinessIcon = (biz) => {
+    if (biz.categoryId === 'taxi') return Car;
+    if (biz.categoryId === 'shipping') return Truck;
+    if (biz.categoryId === 'airlines') return Plane;
+    if (biz.categoryId === 'oil-gas') return Fuel;
+    return getCategoryInfo(biz.categoryId).Icon;
+  };
+
+  const getBusinessNavigation = (biz) => {
+    if (isFleetBased(biz.categoryId) && biz.categoryId !== 'airlines') {
+      return `/business/fleet/${biz.id}`;
+    }
+    if (biz.categoryId === 'airlines') {
+      return `/business/airline/${biz.id}`;
+    }
+    if (isContractBased(biz.categoryId)) {
+      return `/business/oilgas/${biz.id}`;
+    }
+    return `/business/detail/${biz.id}`;
+  };
+
+  const getBusinessStats = (biz) => {
+    if (isFleetBased(biz.categoryId) && biz.categoryId !== 'airlines') {
+      const activeVehicles = countActiveFleetVehicles(biz);
+      const capacity = biz.fleet?.capacity || 5;
+      return {
+        label: `${activeVehicles}/${capacity} cars`,
+        showWarning: activeVehicles === 0
+      };
+    }
+    if (biz.categoryId === 'airlines') {
+      const aircraft = (biz.airline?.aircraft || []).filter(a => a.active).length;
+      const hubs = (biz.airline?.hubs || []).length;
+      return {
+        label: `${aircraft} aircraft • ${hubs} hubs`,
+        showWarning: aircraft === 0
+      };
+    }
+    if (isContractBased(biz.categoryId)) {
+      const oilWells = (biz.oilgas?.wells?.oil || []).filter(w => w.active).length;
+      const gasWells = (biz.oilgas?.wells?.gas || []).filter(w => w.active).length;
+      return {
+        label: `${oilWells} oil • ${gasWells} gas wells`,
+        showWarning: oilWells === 0 && gasWells === 0
+      };
+    }
+    const activeOutlets = countActiveOutlets(biz);
+    const outlets = biz.outlets || 1;
+    return {
+      label: `Lv.${biz.level || 1} • ${activeOutlets}/${outlets} active`,
+      showWarning: !checkRequiredComplete(biz)
+    };
+  };
+
   const totalCompanies = (ownedBusinesses?.length || 0) + (activeMergerFlows?.length || 0) + (mergedBusinesses?.length || 0);
 
   return (
@@ -61,7 +121,7 @@ function OwnedBusinessList() {
         <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
           <div className="space-y-2 pb-4">
 
-            {/* ═══ COMPLETED MERGERS — Now clickable ═══ */}
+            {/* ═══ COMPLETED MERGERS ═══ */}
             {mergedBusinesses?.map((merged) => {
               const mergerDef = MERGER_BUSINESSES.find(m => m.id === merged.mergerId);
               const MergerIcon = mergerDef?.icon || GitMerge;
@@ -86,6 +146,11 @@ function OwnedBusinessList() {
                       <div className="flex items-center gap-1">
                         <Check className="w-3 h-3 text-green-500" />
                         <span className="text-[10px] font-medium text-green-500">Active</span>
+                        {merged.collectionCount > 1 && (
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded ${isDark ? 'bg-gray-800' : 'bg-gray-100'} ${t.text.tertiary}`}>
+                            {merged.collectionCount} collections
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-baseline gap-1">
                         <span className="text-sm font-bold text-green-500">{formatCurrency(merged.incomePerHour)}</span>
@@ -163,29 +228,41 @@ function OwnedBusinessList() {
 
             {/* ═══ REGULAR BUSINESSES ═══ */}
             {ownedBusinesses?.map((biz) => {
-              const { Icon, color } = getCategoryInfo(biz.categoryId);
-              const level = biz.level || 1;
-              const outlets = biz.outlets || 1;
-              const requirementsMet = checkRequiredComplete(biz);
-              const missingCount = requirementsMet ? 0 : getMissingCount(biz);
+              const { color } = getCategoryInfo(biz.categoryId);
+              const BizIcon = getBusinessIcon(biz);
+              const stats = getBusinessStats(biz);
               const effectiveIncome = calcBusinessIncome(biz);
-              const activeOutlets = countActiveOutlets(biz);
+              const isFleet = isFleetBased(biz.categoryId);
+              const isContract = isContractBased(biz.categoryId);
+
+              // For outlet-based, check missing requirements
+              const missingCount = (!isFleet && !isContract) ? getMissingCount(biz) : 0;
 
               return (
-                <button key={biz.id} onClick={() => navigate(`/business/detail/${biz.id}`)}
+                <button key={biz.id} onClick={() => navigate(getBusinessNavigation(biz))}
                   className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-left
                     transition-all duration-200 active:scale-[0.98]
                     ${t.bg.card} border ${t.border.default} hover:border-yellow-500/30
-                    ${!requirementsMet ? (isDark ? 'border-red-500/20' : 'border-red-200') : ''}`}>
-                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${color} ${!requirementsMet ? 'opacity-60' : ''}`}>
-                    <Icon className="w-5.5 h-5.5 text-white" />
+                    ${stats.showWarning ? (isDark ? 'border-red-500/20' : 'border-red-200') : ''}`}>
+                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${color} ${stats.showWarning ? 'opacity-60' : ''}`}>
+                    <BizIcon className="w-5.5 h-5.5 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className={`text-sm font-bold truncate ${t.text.primary}`}>{biz.name}</p>
-                      {outlets > 1 && (
+                      {isFleet && (
+                        <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-yellow-500/15 text-yellow-600 flex-shrink-0">
+                          FLEET
+                        </span>
+                      )}
+                      {isContract && (
+                        <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-amber-500/15 text-amber-600 flex-shrink-0">
+                          CONTRACT
+                        </span>
+                      )}
+                      {!isFleet && !isContract && (biz.outlets || 1) > 1 && (
                         <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-blue-500/15 text-blue-500 flex-shrink-0">
-                          {outlets} outlets
+                          {biz.outlets} outlets
                         </span>
                       )}
                     </div>
@@ -195,9 +272,9 @@ function OwnedBusinessList() {
                     <div className="flex items-center justify-between mt-1.5">
                       <div className="flex items-center gap-1.5">
                         <span className={`text-[11px] font-medium ${t.text.secondary}`}>
-                          Lv.{level} • {activeOutlets}/{outlets} active
+                          {stats.label}
                         </span>
-                        {!requirementsMet && (
+                        {missingCount > 0 && (
                           <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 text-[9px] font-bold">
                             <AlertTriangle className="w-2.5 h-2.5" />{missingCount}
                           </span>

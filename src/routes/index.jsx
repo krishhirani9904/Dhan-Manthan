@@ -19,6 +19,18 @@ import ProjectBoard from '../pages/business/management/ProjectBoard';
 import BranchManagement from '../pages/business/management/BranchManagement';
 import LicensePayment from '../pages/business/management/LicensePayment';
 import BizSettings from '../pages/business/management/BizSettings';
+import FleetManagement from '../pages/business/fleet/FleetManagement';
+import CarPurchase from '../pages/business/fleet/CarPurchase';
+import CarFleetList from '../pages/business/fleet/CarFleetList';
+import AirlineManagement from '../pages/business/airline/AirlineManagement';
+import CountryLicenses from '../pages/business/airline/CountryLicenses';
+import HubManagement from '../pages/business/airline/HubManagement';
+import AircraftPurchase from '../pages/business/airline/AircraftPurchase';
+import FlightOperations from '../pages/business/airline/FlightOperations';
+import AirlineStaff from '../pages/business/airline/AirlineStaff';
+import OilGasManagement from '../pages/business/oilgas/OilGasManagement';
+import WellPurchase from '../pages/business/oilgas/WellPurchase';
+import CustomerContracts from '../pages/business/oilgas/CustomerContracts';
 
 // Merger Flow
 import MergerConfirm from '../pages/business/merger/MergerConfirm';
@@ -97,7 +109,7 @@ function AppRoutes() {
       <Route path="/profile/forbes" element={<ForbesPage />} />
       <Route path="/profile/statistics" element={<StatisticsPage />} />
 
-      {/* Business */}
+      {/* Business - General */}
       <Route path="/business/start" element={<StartBusiness />} />
       <Route path="/business/mergers" element={<BusinessMergers />} />
       <Route path="/business/category/:categoryId" element={<BusinessCategory />} />
@@ -105,6 +117,8 @@ function AppRoutes() {
       <Route path="/business/setup/:categoryId/:subCategoryId" element={<BusinessSetup />} />
       <Route path="/business/detail/:bizId" element={<BusinessDetail />} />
       <Route path="/business/settings/:bizId" element={<BusinessSettings />} />
+
+      {/* Business - Management */}
       <Route path="/business/manage/:bizId/staff" element={<StaffHiring />} />
       <Route path="/business/manage/:bizId/vehicles" element={<VehiclePurchase />} />
       <Route path="/business/manage/:bizId/equipment" element={<EquipmentPurchase />} />
@@ -114,6 +128,24 @@ function AppRoutes() {
       <Route path="/business/manage/:bizId/licenses" element={<LicensePayment />} />
       <Route path="/business/manage/:bizId/bizsettings" element={<BizSettings />} />
 
+      {/* Business - Fleet (Taxi/Shipping) */}
+      <Route path="/business/fleet/:bizId" element={<FleetManagement />} />
+      <Route path="/business/fleet/:bizId/buy" element={<CarPurchase />} />
+      <Route path="/business/fleet/:bizId/list" element={<CarFleetList />} />
+
+      {/* Business - Airline (ONE route per path) */}
+      <Route path="/business/airline/:bizId" element={<AirlineManagement />} />
+      <Route path="/business/airline/:bizId/licenses" element={<CountryLicenses />} />
+      <Route path="/business/airline/:bizId/hubs" element={<HubManagement />} />
+      <Route path="/business/airline/:bizId/aircraft" element={<AircraftPurchase />} />
+      <Route path="/business/airline/:bizId/flights" element={<FlightOperations />} />
+      <Route path="/business/airline/:bizId/staff" element={<AirlineStaff />} />
+
+      {/* Business - Oil & Gas (ONE route per path) */}
+      <Route path="/business/oilgas/:bizId" element={<OilGasManagement />} />
+      <Route path="/business/oilgas/:bizId/wells" element={<WellPurchase />} />
+      <Route path="/business/oilgas/:bizId/contracts" element={<CustomerContracts />} />
+
       {/* Merger Flow */}
       <Route path="/business/merger/confirm/:mergerId" element={<MergerConfirm />} />
       <Route path="/business/merger/name/:mergerId" element={<MergerNameInput />} />
@@ -121,7 +153,6 @@ function AppRoutes() {
       <Route path="/business/merger/analysts/:flowId/:trendId" element={<MergerAnalysts />} />
       <Route path="/business/merger/configurator/:flowId" element={<MergerConfigurator />} />
       <Route path="/business/merger/development/:flowId" element={<MergerDevelopment />} />
-      {/* NEW: Completed merger detail */}
       <Route path="/business/merged/:mergedId" element={<MergedBusinessDetail />} />
 
       {/* Stocks */}
